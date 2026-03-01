@@ -1,43 +1,74 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { v4 as uuid } from 'uuid';
+import { waterApi } from '../lib/api';
 
-const DEFAULT_GOAL = 2500;
+export const useWaterStore = create((set, get) => ({
+  // Today's data from API
+  entries: [],
+  totalMl: 0,
+  goalMl: 2500,
+  progressPercent: 0,
+  date: '',
 
-export const useWaterStore = create(
-  persist(
-    (set, get) => ({
-      entries: [],
-      dailyGoal: DEFAULT_GOAL,
+  // UI state
+  isLoading: false,
+  error: null,
 
-      addEntry: (amount, note = '') => {
-        const entry = {
-          id: uuid(),
-          amount: parseInt(amount),
-          note,
-          timestamp: new Date().toISOString(),
-        };
-        set((s) => ({ entries: [entry, ...s.entries] }));
-      },
+  /**
+   * Fetch today's summary + entries from the API.
+   */
+  fetchToday: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await waterApi.getToday();
+      set({
+        entries: data.entries || [],
+        totalMl: data.totalMl || 0,
+        goalMl: data.goalMl || 2500,
+        progressPercent: data.progressPercent || 0,
+        date: data.date || '',
+        isLoading: false,
+      });
+    } catch (err) {
+      set({ error: err.message, isLoading: false });
+    }
+  },
 
-      deleteEntry: (id) => {
-        set((s) => ({ entries: s.entries.filter((e) => e.id !== id) }));
-      },
+  /**
+   * Log a new water entry, then refresh today's data.
+   */
+  addEntry: async (amountMl, notes = '') => {
+    set({ error: null });
+    try {
+      await waterApi.log(amountMl, notes);
+      await get().fetchToday();
+    } catch (err) {
+      set({ error: err.message });
+    }
+  },
 
-      setDailyGoal: (goal) => set({ dailyGoal: goal }),
+  /**
+   * Update an existing entry, then refresh.
+   */
+  updateEntry: async (id, updates) => {
+    set({ error: null });
+    try {
+      await waterApi.update(id, updates);
+      await get().fetchToday();
+    } catch (err) {
+      set({ error: err.message });
+    }
+  },
 
-      getTodayEntries: () => {
-        const today = new Date().toISOString().slice(0, 10);
-        return get().entries.filter((e) => e.timestamp.slice(0, 10) === today);
-      },
-
-      getTodayTotal: () => {
-        const today = new Date().toISOString().slice(0, 10);
-        return get()
-          .entries.filter((e) => e.timestamp.slice(0, 10) === today)
-          .reduce((sum, e) => sum + e.amount, 0);
-      },
-    }),
-    { name: 'gymjournal-water' }
-  )
-);
+  /**
+   * Delete an entry, then refresh.
+   */
+  deleteEntry: async (id) => {
+    set({ error: null });
+    try {
+      await waterApi.delete(id);
+      await get().fetchToday();
+    } catch (err) {
+      set({ error: err.message });
+    }
+  },
+}));
