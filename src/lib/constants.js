@@ -82,35 +82,3 @@ export const METRIC_GROUPS = {
 export const DEFAULT_GROUPS = ['core', 'inbody', 'upper', 'arms', 'lower'];
 export const ADVANCED_GROUPS = ['lipids', 'metabolic', 'vitamins', 'blood'];
 
-// ─── Exercise Library ────────────────────────────────────────
-export const MUSCLE_GROUPS = [
-  'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms',
-  'Core', 'Quads', 'Hamstrings', 'Glutes', 'Calves',
-];
-
-export const EQUIPMENT = [
-  'Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Kettlebell', 'Resistance Band',
-];
-
-export const MOCK_EXERCISES = [
-  { id: 'ex-1', name: 'Bench Press', muscleGroup: 'Chest', equipment: 'Barbell', difficulty: 'Intermediate' },
-  { id: 'ex-2', name: 'Squat', muscleGroup: 'Quads', equipment: 'Barbell', difficulty: 'Intermediate' },
-  { id: 'ex-3', name: 'Deadlift', muscleGroup: 'Back', equipment: 'Barbell', difficulty: 'Advanced' },
-  { id: 'ex-4', name: 'Overhead Press', muscleGroup: 'Shoulders', equipment: 'Barbell', difficulty: 'Intermediate' },
-  { id: 'ex-5', name: 'Barbell Row', muscleGroup: 'Back', equipment: 'Barbell', difficulty: 'Intermediate' },
-  { id: 'ex-6', name: 'Pull Up', muscleGroup: 'Back', equipment: 'Bodyweight', difficulty: 'Intermediate' },
-  { id: 'ex-7', name: 'Push Up', muscleGroup: 'Chest', equipment: 'Bodyweight', difficulty: 'Beginner' },
-  { id: 'ex-8', name: 'Dumbbell Curl', muscleGroup: 'Biceps', equipment: 'Dumbbell', difficulty: 'Beginner' },
-  { id: 'ex-9', name: 'Tricep Pushdown', muscleGroup: 'Triceps', equipment: 'Cable', difficulty: 'Beginner' },
-  { id: 'ex-10', name: 'Leg Press', muscleGroup: 'Quads', equipment: 'Machine', difficulty: 'Beginner' },
-  { id: 'ex-11', name: 'Lat Pulldown', muscleGroup: 'Back', equipment: 'Cable', difficulty: 'Beginner' },
-  { id: 'ex-12', name: 'Dumbbell Fly', muscleGroup: 'Chest', equipment: 'Dumbbell', difficulty: 'Beginner' },
-  { id: 'ex-13', name: 'Lateral Raise', muscleGroup: 'Shoulders', equipment: 'Dumbbell', difficulty: 'Beginner' },
-  { id: 'ex-14', name: 'Plank', muscleGroup: 'Core', equipment: 'Bodyweight', difficulty: 'Beginner' },
-  { id: 'ex-15', name: 'Romanian Deadlift', muscleGroup: 'Hamstrings', equipment: 'Barbell', difficulty: 'Intermediate' },
-  { id: 'ex-16', name: 'Hip Thrust', muscleGroup: 'Glutes', equipment: 'Barbell', difficulty: 'Intermediate' },
-  { id: 'ex-17', name: 'Calf Raise', muscleGroup: 'Calves', equipment: 'Machine', difficulty: 'Beginner' },
-  { id: 'ex-18', name: 'Cable Crunch', muscleGroup: 'Core', equipment: 'Cable', difficulty: 'Beginner' },
-  { id: 'ex-19', name: 'Hammer Curl', muscleGroup: 'Biceps', equipment: 'Dumbbell', difficulty: 'Beginner' },
-  { id: 'ex-20', name: 'Skull Crusher', muscleGroup: 'Triceps', equipment: 'Barbell', difficulty: 'Intermediate' },
-];

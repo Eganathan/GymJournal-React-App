@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../stores/authStore';
+import { healthApi } from '../lib/api';
 
 export default function AuthGuard({ children }) {
   const { isAuthenticated, isLoading, checkSession } = useAuthStore();
+  const warmedUp = useRef(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -10,6 +12,14 @@ export default function AuthGuard({ children }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fire-and-forget health check to warm up the AppSail container
+  useEffect(() => {
+    if (isAuthenticated && !warmedUp.current) {
+      warmedUp.current = true;
+      healthApi.check().catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   // Loading — checkSession will redirect to Catalyst login if needed
   if (isLoading || !isAuthenticated) {

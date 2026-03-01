@@ -1,18 +1,26 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Dumbbell, Plus, ChevronRight, Activity, Droplets } from 'lucide-react';
+import { Dumbbell, Plus, ChevronRight, Activity } from 'lucide-react';
 import { useRoutineStore } from '../stores/routineStore';
 import { useMetricsStore } from '../stores/metricsStore';
-import { calculateBMI, getBMIStatus } from '../lib/bmi';
+import { getBMIStatus } from '../lib/bmi';
 
 export default function Dashboard() {
   const routines = useRoutineStore((s) => s.routines);
-  const getLatest = useMetricsStore((s) => s.getLatest);
+  const snapshot = useMetricsStore((s) => s.snapshot) || {};
+  const fetchSnapshot = useMetricsStore((s) => s.fetchSnapshot);
 
-  const weight = getLatest('weight');
-  const height = getLatest('height');
-  const bodyFat = getLatest('bodyFat');
+  useEffect(() => {
+    // Only fetch if snapshot is empty (not yet loaded)
+    if (Object.keys(snapshot).length === 0) {
+      fetchSnapshot();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const bmi = calculateBMI(weight?.value, height?.value);
+  const weight = snapshot.weight?.value ?? null;
+  const bmi = snapshot.bmi?.value ?? null;
+  const bodyFat = snapshot.bodyFat?.value ?? null;
   const bmiStatus = getBMIStatus(bmi);
 
   const hour = new Date().getHours();
@@ -44,17 +52,17 @@ export default function Dashboard() {
         <div className="grid grid-cols-3 gap-3 mb-10">
           <div className="card text-center">
             <p className="label mb-2">Weight</p>
-            <p className="text-2xl font-bold">{weight ? weight.value : '--'}</p>
+            <p className="text-2xl font-bold">{weight != null ? weight : '--'}</p>
             <p className="text-xs text-neutral-600 mt-1">kg</p>
           </div>
           <div className="card text-center">
             <p className="label mb-2">BMI</p>
-            <p className={`text-2xl font-bold ${bmiStatus.color}`}>{bmi ? bmi.toFixed(1) : '--'}</p>
+            <p className={`text-2xl font-bold ${bmiStatus.color}`}>{bmi != null ? Number(bmi).toFixed(1) : '--'}</p>
             <p className={`text-xs mt-1 ${bmiStatus.color}`}>{bmiStatus.label}</p>
           </div>
           <div className="card text-center">
             <p className="label mb-2">Body Fat</p>
-            <p className="text-2xl font-bold">{bodyFat ? bodyFat.value : '--'}</p>
+            <p className="text-2xl font-bold">{bodyFat != null ? bodyFat : '--'}</p>
             <p className="text-xs text-neutral-600 mt-1">%</p>
           </div>
         </div>

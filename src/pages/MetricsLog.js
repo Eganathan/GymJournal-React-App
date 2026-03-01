@@ -1,48 +1,106 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, ChevronDown, ChevronUp, FlaskConical, Plus } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronUp, FlaskConical, Plus, Loader2 } from 'lucide-react';
 import { useMetricsStore } from '../stores/metricsStore';
 import { METRIC_TYPES, METRIC_GROUPS, DEFAULT_GROUPS, ADVANCED_GROUPS } from '../lib/constants';
 import BottomSheet from '../components/BottomSheet';
 
 export default function MetricsLog() {
   const navigate = useNavigate();
-  const addEntry = useMetricsStore((s) => s.addEntry);
-  const customMetricDefs = useMetricsStore((s) => s.customMetricDefs);
-  const addCustomMetricDef = useMetricsStore((s) => s.addCustomMetricDef);
+  const logEntries = useMetricsStore((s) => s.logEntries);
+  const updateEntry = useMetricsStore((s) => s.updateEntry);
+  const customDefs = useMetricsStore((s) => s.customDefs);
+  const fetchCustomDefs = useMetricsStore((s) => s.fetchCustomDefs);
+  const createCustomDef = useMetricsStore((s) => s.createCustomDef);
+  const dayEntries = useMetricsStore((s) => s.dayEntries);
+  const fetchDayEntries = useMetricsStore((s) => s.fetchDayEntries);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [values, setValues] = useState({});
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showCustomSheet, setShowCustomSheet] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
   const [customUnit, setCustomUnit] = useState('');
 
+  // Fetch custom defs on mount, day entries on mount + date change
+  useEffect(() => {
+    fetchCustomDefs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    fetchDayEntries(date);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
+
+  // Pre-fill values from existing day entries
+  useEffect(() => {
+    if (dayEntries.length > 0) {
+      const prefill = {};
+      dayEntries.forEach((entry) => {
+        prefill[entry.metricType] = String(entry.value);
+      });
+      setValues(prefill);
+    } else {
+      setValues({});
+    }
+  }, [dayEntries]);
+
   const setValue = (type, val) => {
     setValues((prev) => ({ ...prev, [type]: val }));
   };
 
-  const handleSave = () => {
-    let count = 0;
+  const handleSave = async () => {
+    // Separate new entries vs updates to existing
+    const existingByType = {};
+    dayEntries.forEach((e) => { existingByType[e.metricType] = e; });
+
+    const newEntries = [];
+    const updates = [];
+
     Object.entries(values).forEach(([type, val]) => {
-      if (val !== '' && val != null && !isNaN(parseFloat(val))) {
-        const meta = METRIC_TYPES[type];
-        const customDef = customMetricDefs.find((d) => d.key === type);
-        const unit = meta?.unit || customDef?.unit || '';
-        addEntry(type, val, unit, date);
-        count++;
+      if (val === '' || val == null || isNaN(parseFloat(val))) return;
+      const meta = METRIC_TYPES[type];
+      const customDef = customDefs.find((d) => d.key === type);
+      const unit = meta?.unit || customDef?.unit || '';
+      const existing = existingByType[type];
+
+      if (existing) {
+        // Only update if value changed
+        if (Number(existing.value) !== parseFloat(val)) {
+          updates.push({ id: existing.id, value: parseFloat(val), unit });
+        }
+      } else {
+        newEntries.push({ metricType: type, value: parseFloat(val), unit, date });
       }
     });
-    if (count > 0) {
+
+    if (newEntries.length === 0 && updates.length === 0) return;
+
+    setSaving(true);
+    try {
+      // Batch POST new entries
+      if (newEntries.length > 0) {
+        await logEntries(newEntries);
+      }
+      // PUT updates
+      for (const u of updates) {
+        await updateEntry(u.id, { value: u.value });
+      }
       setSaved(true);
       setTimeout(() => navigate('/metrics'), 800);
+    } catch {
+      // error is set in the store
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleAddCustomDef = () => {
+  const handleAddCustomDef = async () => {
     if (!customLabel.trim()) return;
-    addCustomMetricDef(customLabel.trim(), customUnit.trim() || '');
+    await createCustomDef(customLabel.trim(), customUnit.trim() || '');
     setCustomLabel('');
     setCustomUnit('');
     setShowCustomSheet(false);
@@ -130,11 +188,11 @@ export default function MetricsLog() {
               {ADVANCED_GROUPS.map(renderGroup)}
 
               {/* Custom metrics */}
-              {customMetricDefs.length > 0 && (
+              {customDefs.length > 0 && (
                 <div className="mb-8">
                   <h2 className="section-title">Custom Metrics</h2>
                   <div className="space-y-3">
-                    {customMetricDefs.map((def) => (
+                    {customDefs.map((def) => (
                       <div key={def.key} className="flex items-center gap-4">
                         <label className="text-sm text-neutral-400 w-32 shrink-0">{def.label}</label>
                         <div className="flex-1 relative">
@@ -171,9 +229,10 @@ export default function MetricsLog() {
           {/* Save */}
           <button
             onClick={handleSave}
-            disabled={filledCount === 0}
-            className="btn-primary w-full disabled:opacity-30 disabled:cursor-not-allowed"
+            disabled={filledCount === 0 || saving}
+            className="btn-primary w-full disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
+            {saving && <Loader2 size={14} className="animate-spin" />}
             {filledCount > 0
               ? `Save ${filledCount} measurement${filledCount > 1 ? 's' : ''}`
               : 'Fill in at least one metric'}

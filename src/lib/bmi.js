@@ -1,9 +1,5 @@
 // ─── BMI ──────────────────────────────────────────────────────
-export function calculateBMI(weightKg, heightCm) {
-  if (!weightKg || !heightCm || heightCm === 0) return null;
-  const heightM = heightCm / 100;
-  return weightKg / (heightM * heightM);
-}
+// calculateBMI removed — server computes BMI
 
 export function getBMIStatus(bmi) {
   if (bmi == null) return { label: 'N/A', color: 'text-neutral-600', bg: '' };
@@ -14,12 +10,7 @@ export function getBMIStatus(bmi) {
 }
 
 // ─── SMI (Skeletal Muscle Index) ─────────────────────────────
-// SMI = Skeletal Muscle Mass (kg) / Height (m)²
-export function calculateSMI(smmKg, heightCm) {
-  if (!smmKg || !heightCm || heightCm === 0) return null;
-  const heightM = heightCm / 100;
-  return smmKg / (heightM * heightM);
-}
+// calculateSMI removed — server computes SMI
 
 export function getSMIStatus(smi, isMale = true) {
   if (smi == null) return { label: 'N/A', color: 'text-neutral-600' };
