@@ -1,0 +1,116 @@
+/* Custom CSS for Catalyst embedded login iFrame */
+/* This file is served as static and referenced via css_url config */
+
+body {
+  background: #0a0a0a !important;
+  color: #fff !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Container */
+.login_container,
+.signin_container,
+#login_container {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Input fields */
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  background: transparent !important;
+  border: 1px solid #262626 !important;
+  border-radius: 12px !important;
+  color: #fff !important;
+  padding: 12px 16px !important;
+  font-size: 14px !important;
+  transition: border-color 0.2s !important;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
+  border-color: #525252 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+input::placeholder {
+  color: #525252 !important;
+}
+
+/* Primary button */
+.btn,
+button[type="submit"],
+.login_btn,
+.signin_btn {
+  background: #fff !important;
+  color: #000 !important;
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 12px 24px !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  cursor: pointer !important;
+  transition: background 0.2s !important;
+}
+
+.btn:hover,
+button[type="submit"]:hover {
+  background: #e5e5e5 !important;
+}
+
+/* Links */
+a, .link {
+  color: #a3a3a3 !important;
+  text-decoration: none !important;
+  transition: color 0.2s !important;
+}
+
+a:hover, .link:hover {
+  color: #fff !important;
+}
+
+/* Labels */
+label {
+  color: #737373 !important;
+  font-size: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Divider / or text */
+.or_text, .divider {
+  color: #404040 !important;
+}
+
+/* Social login buttons */
+.social_btn,
+.google_btn,
+.social_login_btn {
+  background: transparent !important;
+  border: 1px solid #262626 !important;
+  border-radius: 12px !important;
+  color: #a3a3a3 !important;
+  transition: all 0.2s !important;
+}
+
+.social_btn:hover,
+.google_btn:hover,
+.social_login_btn:hover {
+  border-color: #525252 !important;
+  color: #fff !important;
+}
+
+/* Error messages */
+.error_msg, .error {
+  color: #ef4444 !important;
+  font-size: 13px !important;
+}
+
+/* Success messages */
+.success_msg, .success {
+  color: #22c55e !important;
+}

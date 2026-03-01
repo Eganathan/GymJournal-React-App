@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GymJournal</title>
+  <script>
+    // SPA fallback — redirect all unknown routes to the app
+    // Preserves the path so React Router can handle it
+    var path = window.location.pathname + window.location.search + window.location.hash;
+    window.location.replace('/' + '#' + path);
+  </script>
+</head>
+<body style="background:#0a0a0a"></body>
+</html>
