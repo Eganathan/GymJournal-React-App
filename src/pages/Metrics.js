@@ -13,15 +13,20 @@ const INSIGHT_COLORS = {
   DANGER: 'text-red-400 border-red-500/20',
 };
 
+// Metrics worth showing a sparkline trend for
+const TREND_METRICS = ['weight', 'bodyFat', 'smm', 'waist', 'bicepLeft', 'bicepRight', 'chest'];
+
 export default function Metrics() {
   const snapshot = useMetricsStore((s) => s.snapshot);
   const insights = useMetricsStore((s) => s.insights);
   const customDefs = useMetricsStore((s) => s.customDefs);
+  const historyCache = useMetricsStore((s) => s.history);
   const isLoading = useMetricsStore((s) => s.isLoading);
   const error = useMetricsStore((s) => s.error);
   const fetchSnapshot = useMetricsStore((s) => s.fetchSnapshot);
   const fetchInsights = useMetricsStore((s) => s.fetchInsights);
   const fetchCustomDefs = useMetricsStore((s) => s.fetchCustomDefs);
+  const fetchHistory = useMetricsStore((s) => s.fetchHistory);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -29,11 +34,21 @@ export default function Metrics() {
     fetchSnapshot();
     fetchInsights();
     fetchCustomDefs();
+    // Fetch trend data for key metrics (fire-and-forget)
+    TREND_METRICS.forEach((type) => fetchHistory(type));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const snap = snapshot || {};
   const getVal = (type) => snap[type]?.value ?? null;
+
+  // Get last N history points for sparkline
+  const getTrend = (type) => {
+    const h = historyCache[type];
+    if (!h || h.length < 2) return null;
+    // Last 10 points for sparkline
+    return h.slice(-10);
+  };
 
   // BMI & SMI from server snapshot
   const bmi = getVal('bmi');
@@ -48,7 +63,7 @@ export default function Metrics() {
   if (isLoading && Object.keys(snap).length === 0) {
     return (
       <div className="page flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-neutral-600" />
+        <Loader2 size={24} className="animate-spin" style={{ color: 'var(--text-dim)' }} />
       </div>
     );
   }
@@ -77,18 +92,51 @@ export default function Metrics() {
             {bmi != null ? Number(bmi).toFixed(1) : '--'}
           </p>
           <p className={`text-xs mt-1 ${bmiStatus.color}`}>{bmiStatus.label}</p>
-          <p className="text-[10px] text-neutral-700 mt-2">Server-calculated</p>
+          <p className="text-[10px] mt-2" style={{ color: 'var(--text-faint)' }}>Server-calculated</p>
         </div>
         {/* SMI */}
         <div className="card">
           <p className="label mb-2">SMI</p>
-          <p className={`text-3xl font-bold ${smi != null ? 'text-white' : 'text-neutral-700'}`}>
+          <p className="text-3xl font-bold" style={{ color: smi != null ? 'var(--text-primary)' : 'var(--text-faint)' }}>
             {smi != null ? Number(smi).toFixed(1) : '--'}
           </p>
-          <p className="text-xs text-neutral-600 mt-1">kg/m²</p>
-          <p className="text-[10px] text-neutral-700 mt-2">{smi != null ? 'SMM ÷ height²' : 'Log SMM & height'}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>kg/m²</p>
+          <p className="text-[10px] mt-2" style={{ color: 'var(--text-faint)' }}>{smi != null ? 'SMM ÷ height²' : 'Log SMM & height'}</p>
         </div>
       </div>
+
+      {/* Insights Section (before groups, if any) */}
+      {insights.length > 0 && (
+        <div className="mb-8 animate-fade-in" style={{ animationDelay: '80ms' }}>
+          <h2 className="section-title flex items-center gap-2">
+            <AlertTriangle size={14} /> Health Insights
+          </h2>
+          <div className="space-y-3">
+            {insights.map((insight, i) => {
+              const statusClass = INSIGHT_COLORS[insight.status] || INSIGHT_COLORS.OK;
+              const borderColor = statusClass.split(' ')[1];
+              return (
+                <div key={i} className={`card border ${borderColor}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-medium">{insight.metricLabel || insight.metricType}</p>
+                    <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${statusClass}`}>
+                      {insight.status}
+                    </span>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{insight.message}</p>
+                  {insight.referenceRange && (
+                    <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-dim)' }}>
+                      Range: {typeof insight.referenceRange === 'string'
+                        ? insight.referenceRange
+                        : `${insight.referenceRange.min ?? ''} – ${insight.referenceRange.max ?? ''}${insight.referenceRange.description ? ` (${insight.referenceRange.description})` : ''}`}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Default Groups */}
       {DEFAULT_GROUPS.map((groupKey, gi) => {
@@ -107,6 +155,7 @@ export default function Metrics() {
                     label={meta.label}
                     value={val}
                     unit={meta.unit}
+                    trend={getTrend(type)}
                   />
                 );
               })}
@@ -119,7 +168,8 @@ export default function Metrics() {
       <div className="animate-fade-in" style={{ animationDelay: '300ms' }}>
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center gap-2 w-full py-3 mb-4 text-neutral-500 hover:text-white transition-all duration-200"
+          className="flex items-center gap-2 w-full py-3 mb-4 transition-all duration-200"
+          style={{ color: 'var(--text-muted)' }}
         >
           <FlaskConical size={16} />
           <span className="text-sm font-medium">
@@ -183,39 +233,6 @@ export default function Metrics() {
           </div>
         )}
       </div>
-
-      {/* Insights Section */}
-      {insights.length > 0 && (
-        <div className="mt-4 animate-fade-in" style={{ animationDelay: '350ms' }}>
-          <h2 className="section-title flex items-center gap-2">
-            <AlertTriangle size={14} /> Health Insights
-          </h2>
-          <div className="space-y-3">
-            {insights.map((insight, i) => {
-              const statusClass = INSIGHT_COLORS[insight.status] || INSIGHT_COLORS.OK;
-              const borderColor = statusClass.split(' ')[1];
-              return (
-                <div key={i} className={`card border ${borderColor}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-medium">{insight.metricLabel || insight.metricType}</p>
-                    <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${statusClass}`}>
-                      {insight.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-neutral-400 mt-1">{insight.message}</p>
-                  {insight.referenceRange && (
-                    <p className="text-[10px] text-neutral-600 mt-1.5">
-                      Range: {typeof insight.referenceRange === 'string'
-                        ? insight.referenceRange
-                        : `${insight.referenceRange.min ?? ''} – ${insight.referenceRange.max ?? ''}${insight.referenceRange.description ? ` (${insight.referenceRange.description})` : ''}`}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

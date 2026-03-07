@@ -7,6 +7,8 @@ import Routines from './pages/Routines';
 import RoutineNew from './pages/RoutineNew';
 import RoutineDetail from './pages/RoutineDetail';
 import AddExercise from './pages/AddExercise';
+import Workouts from './pages/Workouts';
+import WorkoutActive from './pages/WorkoutActive';
 import Metrics from './pages/Metrics';
 import MetricsLog from './pages/MetricsLog';
 import MetricHistory from './pages/MetricHistory';
@@ -19,6 +21,8 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/water" element={<Water />} />
+            <Route path="/workouts" element={<Workouts />} />
+            <Route path="/workouts/:id" element={<WorkoutActive />} />
             <Route path="/routines" element={<Routines />} />
             <Route path="/routines/new" element={<RoutineNew />} />
             <Route path="/routines/:id" element={<RoutineDetail />} />

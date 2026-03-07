@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronDown, ChevronUp, FlaskConical, Plus, Loader2 } from 'lucide-react';
 import { useMetricsStore } from '../stores/metricsStore';
+import { metricsApi } from '../lib/api';
 import { METRIC_TYPES, METRIC_GROUPS, DEFAULT_GROUPS, ADVANCED_GROUPS } from '../lib/constants';
 import BottomSheet from '../components/BottomSheet';
 
@@ -14,11 +15,13 @@ export default function MetricsLog() {
   const createCustomDef = useMetricsStore((s) => s.createCustomDef);
   const dayEntries = useMetricsStore((s) => s.dayEntries);
   const fetchDayEntries = useMetricsStore((s) => s.fetchDayEntries);
+  const isLoading = useMetricsStore((s) => s.isLoading);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [values, setValues] = useState({});
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showCustomSheet, setShowCustomSheet] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
@@ -31,7 +34,7 @@ export default function MetricsLog() {
   }, []);
 
   useEffect(() => {
-    fetchDayEntries(date);
+    fetchDayEntries(date).then(() => setInitialLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
@@ -53,9 +56,19 @@ export default function MetricsLog() {
   };
 
   const handleSave = async () => {
+    // Re-fetch entries for the selected date to ensure we have fresh IDs
+    // (guards against stale dayEntries if user changed the date)
+    let freshEntries = dayEntries;
+    try {
+      const fetched = await metricsApi.getEntries(date);
+      freshEntries = Array.isArray(fetched) ? fetched : [];
+    } catch {
+      // Fall back to cached dayEntries
+    }
+
     // Separate new entries vs updates to existing
     const existingByType = {};
-    dayEntries.forEach((e) => { existingByType[e.metricType] = e; });
+    freshEntries.forEach((e) => { existingByType[e.metricType] = e; });
 
     const newEntries = [];
     const updates = [];
@@ -70,10 +83,10 @@ export default function MetricsLog() {
       if (existing) {
         // Only update if value changed
         if (Number(existing.value) !== parseFloat(val)) {
-          updates.push({ id: existing.id, value: parseFloat(val), unit });
+          updates.push({ id: existing.id, metricType: type, value: parseFloat(val), unit, logDate: date });
         }
       } else {
-        newEntries.push({ metricType: type, value: parseFloat(val), unit, date });
+        newEntries.push({ metricType: type, value: parseFloat(val), unit, logDate: date });
       }
     });
 
@@ -87,7 +100,7 @@ export default function MetricsLog() {
       }
       // PUT updates
       for (const u of updates) {
-        await updateEntry(u.id, { value: u.value });
+        await updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate });
       }
       setSaved(true);
       setTimeout(() => navigate('/metrics'), 800);
@@ -118,7 +131,7 @@ export default function MetricsLog() {
             const meta = METRIC_TYPES[type];
             return (
               <div key={type} className="flex items-center gap-4">
-                <label className="text-sm text-neutral-400 w-32 shrink-0">{meta.label}</label>
+                <label className="text-sm w-32 shrink-0" style={{ color: 'var(--text-secondary)' }}>{meta.label}</label>
                 <div className="flex-1 relative">
                   <input
                     type="number"
@@ -129,7 +142,7 @@ export default function MetricsLog() {
                     placeholder="--"
                     className="w-full !pr-16"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-neutral-600">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--text-dim)' }}>
                     {meta.unit}
                   </span>
                 </div>
@@ -145,7 +158,8 @@ export default function MetricsLog() {
     <div className="page">
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-neutral-500 hover:text-white mb-6 transition-all duration-200 text-sm"
+        className="flex items-center gap-1.5 mb-6 transition-all duration-200 text-sm"
+        style={{ color: 'var(--text-muted)' }}
       >
         <ArrowLeft size={16} /> Back
       </button>
@@ -158,6 +172,10 @@ export default function MetricsLog() {
             <Check size={28} className="text-green-400" />
           </div>
           <p className="text-lg font-semibold text-green-400">Saved!</p>
+        </div>
+      ) : !initialLoaded ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--text-dim)' }} />
         </div>
       ) : (
         <div className="animate-fade-in" style={{ animationDelay: '50ms' }}>
@@ -173,11 +191,12 @@ export default function MetricsLog() {
           {/* Advanced toggle */}
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 w-full py-3 mb-6 text-neutral-500 hover:text-white transition-all duration-200 border-t border-neutral-900 pt-6"
+            className="flex items-center gap-2 w-full py-3 mb-6 transition-all duration-200 pt-6"
+            style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)' }}
           >
             <FlaskConical size={16} />
             <span className="text-sm font-medium">Medical & Blood Work</span>
-            <span className="text-[10px] text-neutral-700 ml-1">(optional)</span>
+            <span className="text-[10px] ml-1" style={{ color: 'var(--text-faint)' }}>(optional)</span>
             <span className="ml-auto">
               {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </span>
@@ -194,7 +213,7 @@ export default function MetricsLog() {
                   <div className="space-y-3">
                     {customDefs.map((def) => (
                       <div key={def.key} className="flex items-center gap-4">
-                        <label className="text-sm text-neutral-400 w-32 shrink-0">{def.label}</label>
+                        <label className="text-sm w-32 shrink-0" style={{ color: 'var(--text-secondary)' }}>{def.label}</label>
                         <div className="flex-1 relative">
                           <input
                             type="number"
@@ -205,7 +224,7 @@ export default function MetricsLog() {
                             className="w-full !pr-16"
                           />
                           {def.unit && (
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-neutral-600">
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--text-dim)' }}>
                               {def.unit}
                             </span>
                           )}
@@ -242,7 +261,7 @@ export default function MetricsLog() {
 
       {/* Custom Metric Sheet */}
       <BottomSheet open={showCustomSheet} onClose={() => setShowCustomSheet(false)} title="Add Custom Metric">
-        <p className="text-sm text-neutral-500 mb-5">
+        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
           Define a new metric to track. It will appear in your log form and dashboard.
         </p>
         <div className="space-y-5">

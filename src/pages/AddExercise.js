@@ -9,7 +9,7 @@ export default function AddExercise() {
   const { id } = useParams();
   const navigate = useNavigate();
   const addExercise = useRoutineStore((s) => s.addExercise);
-  const routine = useRoutineStore((s) => s.getRoutine(id));
+  const routine = useRoutineStore((s) => s.currentRoutine);
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -20,6 +20,7 @@ export default function AddExercise() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [addingId, setAddingId] = useState(null);
 
   const [showCreate, setShowCreate] = useState(false);
   const [customName, setCustomName] = useState('');
@@ -28,10 +29,13 @@ export default function AddExercise() {
   const [customDifficulty, setCustomDifficulty] = useState('Beginner');
   const [customInstructions, setCustomInstructions] = useState('');
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
-  const existingNames = new Set(routine?.exercises.map((e) => e.exerciseName) || []);
+  // Build set of existing exercise names from server routine shape
+  const existingNames = new Set(
+    (routine?.items || []).map((e) => e.exerciseName)
+  );
 
-  // Fetch categories + equipment on mount
   useEffect(() => {
     Promise.all([exercisesApi.getCategories(), exercisesApi.getEquipment()])
       .then(([cats, equip]) => {
@@ -41,7 +45,6 @@ export default function AddExercise() {
       .catch(() => {});
   }, []);
 
-  // Fetch exercises on mount + filter/search change
   const fetchExercises = useCallback(async (pageNum = 1, append = false) => {
     if (pageNum === 1) setLoading(true);
     else setLoadingMore(true);
@@ -53,7 +56,6 @@ export default function AddExercise() {
         page: pageNum,
         pageSize: 20,
       });
-      // data may be { exercises: [], pagination: { hasMore } } or just an array
       const list = Array.isArray(data) ? data : data?.exercises || [];
       const more = Array.isArray(data) ? list.length === 20 : !!data?.pagination?.hasMore;
 
@@ -77,29 +79,36 @@ export default function AddExercise() {
     return () => clearTimeout(timer);
   }, [fetchExercises]);
 
-  const handleAdd = (exercise) => {
-    addExercise(id, {
+  const handleAdd = async (exercise) => {
+    setAddingId(exercise.id);
+    await addExercise(id, {
       name: exercise.name,
       id: exercise.id,
       defaultSets: 3,
       defaultReps: 10,
     });
+    setAddingId(null);
   };
 
   const handleCreateCustom = async () => {
     if (!customName.trim()) return;
+    if (!customCategoryId) { setCreateError('Muscle group is required'); return; }
+    if (!customEquipmentId) { setCreateError('Equipment is required'); return; }
+    setCreateError('');
     setCreating(true);
     try {
+      const instructions = customInstructions.trim()
+        ? [customInstructions.trim()]
+        : ['Perform with proper form and controlled movement.'];
       const created = await exercisesApi.create({
         name: customName.trim(),
-        primaryMuscleId: customCategoryId || undefined,
-        equipmentId: customEquipmentId || undefined,
+        primaryMuscleId: Number(customCategoryId),
+        equipmentId: Number(customEquipmentId),
         difficulty: customDifficulty,
-        instructions: customInstructions.trim() || undefined,
+        instructions,
       });
-      // Add to routine
       if (created) {
-        addExercise(id, {
+        await addExercise(id, {
           name: created.name || customName.trim(),
           id: created.id,
           defaultSets: 3,
@@ -112,10 +121,9 @@ export default function AddExercise() {
       setCustomEquipmentId('');
       setCustomDifficulty('Beginner');
       setCustomInstructions('');
-      // Refresh list
       fetchExercises(1);
-    } catch {
-      // ignore
+    } catch (err) {
+      setCreateError(err.message || 'Failed to create exercise');
     } finally {
       setCreating(false);
     }
@@ -125,7 +133,8 @@ export default function AddExercise() {
     <div className="page">
       <button
         onClick={() => navigate(`/routines/${id}`)}
-        className="flex items-center gap-1.5 text-neutral-500 hover:text-white mb-6 transition-all duration-200 text-sm"
+        className="flex items-center gap-1.5 mb-6 transition-all duration-200 text-sm"
+        style={{ color: 'var(--text-muted)' }}
       >
         <ArrowLeft size={16} /> Back to Routine
       </button>
@@ -134,7 +143,7 @@ export default function AddExercise() {
 
       {/* Search */}
       <div className="relative mb-4 animate-fade-in" style={{ animationDelay: '50ms' }}>
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-600" />
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
         <input
           type="text"
           value={search}
@@ -148,11 +157,11 @@ export default function AddExercise() {
       <div className="flex gap-2 overflow-x-auto pb-3 mb-5 scrollbar-hide animate-fade-in" style={{ animationDelay: '100ms' }}>
         <button
           onClick={() => setCategoryFilter('')}
-          className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 border ${
-            !categoryFilter
-              ? 'bg-white text-black border-white'
-              : 'bg-transparent text-neutral-500 border-neutral-800 hover:border-neutral-600'
-          }`}
+          className="shrink-0 px-3.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 border"
+          style={!categoryFilter
+            ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+            : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+          }
         >
           All
         </button>
@@ -160,11 +169,11 @@ export default function AddExercise() {
           <button
             key={cat.id}
             onClick={() => setCategoryFilter(cat.id === categoryFilter ? '' : cat.id)}
-            className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 border ${
-              categoryFilter === cat.id
-                ? 'bg-white text-black border-white'
-                : 'bg-transparent text-neutral-500 border-neutral-800 hover:border-neutral-600'
-            }`}
+            className="shrink-0 px-3.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 border"
+            style={categoryFilter === cat.id
+              ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+              : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+            }
           >
             {cat.name}
           </button>
@@ -174,49 +183,51 @@ export default function AddExercise() {
       {/* Exercise List */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-neutral-600" />
+          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--text-dim)' }} />
         </div>
       ) : (
         <>
           <div className="space-y-3 mb-6 stagger">
             {exercises.map((ex) => {
               const added = existingNames.has(ex.name);
+              const isAdding = addingId === ex.id;
               return (
                 <div key={ex.id} className="card flex items-center justify-between animate-fade-in">
                   <div className="min-w-0">
                     <p className="font-medium">{ex.name}</p>
-                    <p className="text-xs text-neutral-600 mt-0.5">
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
                       {ex.primaryMuscle || ex.muscleGroup || ''}
                       {(ex.equipment || ex.equipmentName) && (
                         <>
-                          <span className="mx-1.5 text-neutral-800">&middot;</span>
+                          <span className="mx-1.5" style={{ color: 'var(--text-faint)' }}>&middot;</span>
                           {ex.equipment || ex.equipmentName}
                         </>
                       )}
                       {ex.difficulty && (
                         <>
-                          <span className="mx-1.5 text-neutral-800">&middot;</span>
+                          <span className="mx-1.5" style={{ color: 'var(--text-faint)' }}>&middot;</span>
                           {ex.difficulty}
                         </>
                       )}
                     </p>
                   </div>
                   <button
-                    onClick={() => !added && handleAdd(ex)}
-                    disabled={added}
+                    onClick={() => !added && !isAdding && handleAdd(ex)}
+                    disabled={added || isAdding}
                     className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 border ${
                       added
                         ? 'border-green-500/20 text-green-500/60'
-                        : 'border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-white hover:bg-neutral-900'
+                        : ''
                     }`}
+                    style={!added ? { borderColor: 'var(--border-default)', color: 'var(--text-secondary)' } : undefined}
                   >
-                    {added ? <Check size={14} /> : <Plus size={14} />}
+                    {added ? <Check size={14} /> : isAdding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                   </button>
                 </div>
               );
             })}
             {exercises.length === 0 && (
-              <div className="text-center py-10 text-neutral-600">
+              <div className="text-center py-10" style={{ color: 'var(--text-dim)' }}>
                 <p>No exercises found</p>
               </div>
             )}
@@ -290,6 +301,9 @@ export default function AddExercise() {
               rows={3}
             />
           </div>
+          {createError && (
+            <p className="text-sm text-red-400">{createError}</p>
+          )}
           <button
             onClick={handleCreateCustom}
             disabled={!customName.trim() || creating}

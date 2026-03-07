@@ -72,18 +72,18 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ backgroundColor: 'var(--bg-base)' }}>
       {/* Branding */}
       <div className="mb-8 text-center animate-fade-in">
         <h1 className="text-4xl font-bold tracking-tight">GymJournal</h1>
-        <p className="text-neutral-500 mt-2">Track your fitness journey</p>
+        <p className="mt-2" style={{ color: 'var(--text-muted)' }}>Track your fitness journey</p>
       </div>
 
       {/* Loading state */}
       {status === 'loading' && (
         <div className="animate-fade-in flex flex-col items-center gap-3">
-          <Loader2 size={24} className="animate-spin text-neutral-600" />
-          <p className="text-neutral-600 text-sm">Connecting...</p>
+          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--text-dim)' }} />
+          <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Connecting...</p>
         </div>
       )}
 
@@ -93,8 +93,8 @@ export default function Login() {
           {/* Loading indicator while iFrame loads */}
           {!iframeLoaded && (
             <div className="flex flex-col items-center gap-3 py-8">
-              <Loader2 size={20} className="animate-spin text-neutral-600" />
-              <p className="text-neutral-600 text-sm">Loading sign-in...</p>
+              <Loader2 size={20} className="animate-spin" style={{ color: 'var(--text-dim)' }} />
+              <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Loading sign-in...</p>
             </div>
           )}
 
@@ -112,7 +112,8 @@ export default function Login() {
           <p className="text-center mt-6">
             <button
               onClick={handleDevLogin}
-              className="text-neutral-700 hover:text-neutral-400 text-xs transition-colors"
+              className="text-xs transition-colors"
+              style={{ color: 'var(--text-faint)' }}
             >
               Skip sign-in (dev mode)
             </button>
@@ -128,7 +129,7 @@ export default function Login() {
 
             <div className="space-y-4 mb-6">
               <div>
-                <label className="text-sm text-neutral-400 block mb-1.5">Email</label>
+                <label className="text-sm block mb-1.5" style={{ color: 'var(--text-secondary)' }}>Email</label>
                 <input
                   type="email"
                   placeholder="you@example.com"
@@ -137,7 +138,7 @@ export default function Login() {
                 />
               </div>
               <div>
-                <label className="text-sm text-neutral-400 block mb-1.5">Password</label>
+                <label className="text-sm block mb-1.5" style={{ color: 'var(--text-secondary)' }}>Password</label>
                 <input
                   type="password"
                   placeholder="••••••••"
@@ -149,10 +150,10 @@ export default function Login() {
 
             <div className="relative mb-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-neutral-800" />
+                <div className="w-full" style={{ borderTop: '1px solid var(--border-default)' }} />
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="bg-[#0a0a0a] px-3 text-neutral-600">Catalyst unavailable</span>
+                <span className="px-3" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-dim)' }}>Catalyst unavailable</span>
               </div>
             </div>
 
@@ -161,7 +162,7 @@ export default function Login() {
             </button>
           </div>
 
-          <p className="text-neutral-700 text-xs text-center">
+          <p className="text-xs text-center" style={{ color: 'var(--text-faint)' }}>
             Catalyst SDK couldn't connect. This is expected in local dev.
             <br />
             Auth will work when deployed to Catalyst hosting.
@@ -169,7 +170,7 @@ export default function Login() {
         </div>
       )}
 
-      <p className="text-neutral-800 text-xs mt-10 animate-fade-in" style={{ animationDelay: '300ms' }}>
+      <p className="text-xs mt-10 animate-fade-in" style={{ animationDelay: '300ms', color: 'var(--text-faint)' }}>
         Powered by Zoho Catalyst
       </p>
     </div>

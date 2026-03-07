@@ -122,25 +122,25 @@ export const exercisesApi = {
 export const metricsApi = {
   /** Batch-log metric entries */
   logEntries: (entries) =>
-    request('/api/v1/metrics/entries', {
+    request('/api/v1/body-metrics/entries', {
       method: 'POST',
       body: JSON.stringify({ entries }),
     }),
 
   /** Get entries for a specific date */
   getEntries: (date) =>
-    request(`/api/v1/metrics/entries?date=${date}`),
+    request(`/api/v1/body-metrics/entries?date=${date}`),
 
   /** Update a single entry */
   updateEntry: (id, updates) =>
-    request(`/api/v1/metrics/entries/${id}`, {
+    request(`/api/v1/body-metrics/entries/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     }),
 
   /** Delete a single entry */
   deleteEntry: (id) =>
-    request(`/api/v1/metrics/entries/${id}`, { method: 'DELETE' }),
+    request(`/api/v1/body-metrics/entries/${id}`, { method: 'DELETE' }),
 
   /** Get history for a metric type */
   getHistory: (metricType, startDate, endDate) => {
@@ -148,29 +148,134 @@ export const metricsApi = {
     if (startDate) qs.set('startDate', startDate);
     if (endDate) qs.set('endDate', endDate);
     const q = qs.toString();
-    return request(`/api/v1/metrics/${metricType}/history${q ? `?${q}` : ''}`);
+    return request(`/api/v1/body-metrics/${metricType}/history${q ? `?${q}` : ''}`);
   },
 
   /** Get latest snapshot of all metrics */
-  getSnapshot: () => request('/api/v1/metrics/snapshot'),
+  getSnapshot: () => request('/api/v1/body-metrics/snapshot'),
 
   /** Get health insights */
   getInsights: (gender) => {
     const qs = gender ? `?gender=${gender}` : '';
-    return request(`/api/v1/metrics/insights${qs}`);
+    return request(`/api/v1/body-metrics/insights${qs}`);
   },
 
   /** Get custom metric definitions */
-  getCustomDefs: () => request('/api/v1/metrics/custom'),
+  getCustomDefs: () => request('/api/v1/body-metrics/custom'),
 
   /** Create a custom metric definition */
   createCustomDef: (label, unit) =>
-    request('/api/v1/metrics/custom', {
+    request('/api/v1/body-metrics/custom', {
       method: 'POST',
       body: JSON.stringify({ label, unit }),
     }),
 
   /** Delete a custom metric definition */
   deleteCustomDef: (key) =>
-    request(`/api/v1/metrics/custom/${key}`, { method: 'DELETE' }),
+    request(`/api/v1/body-metrics/custom/${key}`, { method: 'DELETE' }),
+};
+
+// ── Routines ──────────────────────────────────────────────
+
+export const routinesApi = {
+  /** List routines — pass mine=true for own, omit for public browse */
+  list: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.mine) qs.set('mine', 'true');
+    if (params.search) qs.set('search', params.search);
+    if (params.page) qs.set('page', params.page);
+    if (params.pageSize) qs.set('pageSize', params.pageSize);
+    const q = qs.toString();
+    return request(`/api/v1/routines${q ? `?${q}` : ''}`);
+  },
+
+  /** Get full routine with items */
+  getById: (id) => request(`/api/v1/routines/${id}`),
+
+  /** Create a routine */
+  create: (routine) =>
+    request('/api/v1/routines', {
+      method: 'POST',
+      body: JSON.stringify(routine),
+    }),
+
+  /** Update a routine (full replacement) */
+  update: (id, routine) =>
+    request(`/api/v1/routines/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(routine),
+    }),
+
+  /** Delete a routine */
+  delete: (id) =>
+    request(`/api/v1/routines/${id}`, { method: 'DELETE' }),
+
+  /** Clone a routine to own library */
+  clone: (id) =>
+    request(`/api/v1/routines/${id}/clone`, { method: 'POST' }),
+};
+
+// ── Workouts ──────────────────────────────────────────────
+
+export const workoutsApi = {
+  /** Start a new workout session */
+  start: (body = {}) =>
+    request('/api/v1/workouts', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /** List workout sessions */
+  list: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.page) qs.set('page', params.page);
+    if (params.pageSize) qs.set('pageSize', params.pageSize);
+    const q = qs.toString();
+    return request(`/api/v1/workouts${q ? `?${q}` : ''}`);
+  },
+
+  /** Get full session with sets */
+  getById: (id) => request(`/api/v1/workouts/${id}`),
+
+  /** Update session name/notes */
+  update: (id, updates) =>
+    request(`/api/v1/workouts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }),
+
+  /** Complete a workout (triggers PB detection) */
+  complete: (id) =>
+    request(`/api/v1/workouts/${id}/complete`, { method: 'POST' }),
+
+  /** Delete a workout */
+  delete: (id) =>
+    request(`/api/v1/workouts/${id}`, { method: 'DELETE' }),
+
+  /** Add a set to a session */
+  addSet: (sessionId, set) =>
+    request(`/api/v1/workouts/${sessionId}/sets`, {
+      method: 'POST',
+      body: JSON.stringify(set),
+    }),
+
+  /** Update a set (PATCH — partial update, all fields optional) */
+  updateSet: (sessionId, setId, updates) =>
+    request(`/api/v1/workouts/${sessionId}/sets/${setId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }),
+
+  /** Delete a set */
+  deleteSet: (sessionId, setId) =>
+    request(`/api/v1/workouts/${sessionId}/sets/${setId}`, { method: 'DELETE' }),
+
+  /** Get exercise history */
+  getExerciseHistory: (exerciseId) =>
+    request(`/api/v1/exercises/${exerciseId}/history`),
+
+  /** Get personal bests for an exercise */
+  getExercisePBs: (exerciseId) =>
+    request(`/api/v1/exercises/${exerciseId}/pbs`),
 };

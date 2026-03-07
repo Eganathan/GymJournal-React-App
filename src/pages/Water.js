@@ -18,28 +18,29 @@ function ProgressRing({ current, goal, size = 220, strokeWidth = 10 }) {
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="var(--border-default)"
           strokeWidth={strokeWidth}
+          strokeOpacity="0.5"
         />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="white"
+          stroke="var(--chart-stroke)"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           style={{
             transition: 'stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-            filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.15))',
+            filter: 'drop-shadow(0 0 8px rgba(128,128,128,0.15))',
           }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-5xl font-bold">{current}</span>
-        <span className="text-sm text-neutral-500 mt-1">of {goal} ml</span>
+        <span className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>of {goal} ml</span>
       </div>
     </div>
   );
@@ -108,7 +109,7 @@ export default function Water() {
       <div className="flex flex-col items-center pt-8 pb-6 animate-fade-in">
         <ProgressRing current={totalMl} goal={goalMl} />
         <h2 className="text-xl font-bold mt-6">Today's Hydration</h2>
-        <p className="text-neutral-500 mt-1">{progressPercent}% of daily goal</p>
+        <p className="mt-1" style={{ color: 'var(--text-muted)' }}>{progressPercent}% of daily goal</p>
       </div>
 
       {/* Error */}
@@ -149,13 +150,13 @@ export default function Water() {
 
         {isLoading && entries.length === 0 ? (
           <div className="card text-center py-10">
-            <div className="w-6 h-6 border-2 border-neutral-800 border-t-white rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-neutral-600 text-sm">Loading...</p>
+            <div className="w-6 h-6 rounded-full animate-spin mx-auto mb-3" style={{ border: '2px solid var(--border-default)', borderTopColor: 'var(--text-primary)' }} />
+            <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Loading...</p>
           </div>
         ) : entries.length === 0 ? (
           <div className="card text-center py-10">
-            <p className="text-neutral-600">No water logged today</p>
-            <p className="text-neutral-700 text-sm mt-1">Tap a quick add button above</p>
+            <p style={{ color: 'var(--text-dim)' }}>No water logged today</p>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-faint)' }}>Tap a quick add button above</p>
           </div>
         ) : (
           <div className="space-y-3 stagger">
@@ -165,14 +166,15 @@ export default function Water() {
                 : '';
               return (
                 <div key={entry.id} className="card flex items-center gap-4 animate-fade-in">
-                  <span className="text-sm text-neutral-600 w-16 shrink-0">{time}</span>
+                  <span className="text-sm w-16 shrink-0" style={{ color: 'var(--text-dim)' }}>{time}</span>
                   <span className="text-blue-400">&#x1F4A7;</span>
                   <span className="font-semibold">{entry.amountMl} ml</span>
-                  {entry.notes && <span className="text-sm text-neutral-600 truncate">{entry.notes}</span>}
+                  {entry.notes && <span className="text-sm truncate" style={{ color: 'var(--text-dim)' }}>{entry.notes}</span>}
                   <div className="ml-auto flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => openEdit(entry)}
-                      className="text-xs text-neutral-600 hover:text-white px-2 py-1 rounded-lg hover:bg-neutral-800 transition-all duration-200"
+                      className="text-xs px-2 py-1 rounded-lg transition-all duration-200"
+                      style={{ color: 'var(--text-dim)' }}
                     >
                       Edit
                     </button>

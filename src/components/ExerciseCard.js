@@ -1,4 +1,4 @@
-import { ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 
 export default function ExerciseCard({ exercise, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast }) {
@@ -12,23 +12,25 @@ export default function ExerciseCard({ exercise, onUpdate, onRemove, onMoveUp, o
           <button
             onClick={onMoveUp}
             disabled={isFirst}
-            className="p-1 rounded-lg hover:bg-neutral-800 disabled:opacity-10 transition-all duration-200"
+            className="p-1 rounded-lg disabled:opacity-10 transition-all duration-200"
+            style={{ color: 'var(--text-muted)' }}
           >
-            <ChevronUp size={14} className="text-neutral-500" />
+            <ChevronUp size={14} />
           </button>
           <button
             onClick={onMoveDown}
             disabled={isLast}
-            className="p-1 rounded-lg hover:bg-neutral-800 disabled:opacity-10 transition-all duration-200"
+            className="p-1 rounded-lg disabled:opacity-10 transition-all duration-200"
+            style={{ color: 'var(--text-muted)' }}
           >
-            <ChevronDown size={14} className="text-neutral-500" />
+            <ChevronDown size={14} />
           </button>
         </div>
 
         {/* Info */}
         <button className="flex-1 min-w-0 text-left" onClick={() => setExpanded(!expanded)}>
           <p className="font-semibold truncate">{exercise.exerciseName}</p>
-          <p className="text-sm text-neutral-500 mt-0.5">
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {exercise.defaultSets} sets &times; {exercise.defaultReps} reps
             {exercise.defaultWeightKg ? ` · ${exercise.defaultWeightKg} kg` : ''}
           </p>
@@ -38,7 +40,8 @@ export default function ExerciseCard({ exercise, onUpdate, onRemove, onMoveUp, o
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-xs text-neutral-500 hover:text-white px-2 py-1 rounded-lg hover:bg-neutral-800 transition-all duration-200"
+            className="text-xs px-2 py-1 rounded-lg transition-all duration-200"
+            style={{ color: 'var(--text-muted)' }}
           >
             Edit
           </button>
@@ -53,7 +56,7 @@ export default function ExerciseCard({ exercise, onUpdate, onRemove, onMoveUp, o
 
       {/* Expanded edit */}
       {expanded && (
-        <div className="mt-4 pt-4 border-t border-neutral-800 animate-fade-in grid grid-cols-3 gap-3">
+        <div className="mt-4 pt-4 animate-fade-in grid grid-cols-3 gap-3" style={{ borderTop: '1px solid var(--border-default)' }}>
           <div>
             <label className="label block mb-1.5">Sets</label>
             <input

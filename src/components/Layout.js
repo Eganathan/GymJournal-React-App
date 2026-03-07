@@ -1,35 +1,57 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Home, Droplets, ClipboardList, Scale, Sun, Moon, LogOut } from 'lucide-react';
-import { useState } from 'react';
+import { Home, Droplets, Dumbbell, ClipboardList, Scale, Sun, Moon, LogOut } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 
 const tabs = [
   { to: '/', icon: Home, label: 'Home' },
+  { to: '/workouts', icon: Dumbbell, label: 'Workouts' },
   { to: '/water', icon: Droplets, label: 'Water' },
   { to: '/routines', icon: ClipboardList, label: 'Routines' },
   { to: '/metrics', icon: Scale, label: 'Body' },
 ];
 
 export default function Layout() {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    const stored = localStorage.getItem('theme');
+    return stored ? stored === 'dark' : true;
+  });
   const { user, signOut } = useAuthStore();
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (darkMode) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   const displayName = user?.firstName || user?.email?.split('@')[0] || 'User';
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
       {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-neutral-900">
+      <header className="sticky top-0 z-40 backdrop-blur-md" style={{ backgroundColor: 'var(--bg-nav)', borderBottom: '1px solid var(--border-subtle)' }}>
         <div className="flex items-center justify-between h-14 px-5 lg:px-8 max-w-screen-xl mx-auto">
           <span className="text-lg font-bold tracking-tight">GymJournal</span>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-neutral-500 hidden sm:block">{displayName}</span>
+            <span className="text-sm hidden sm:block" style={{ color: 'var(--text-muted)' }}>{displayName}</span>
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="w-9 h-9 rounded-xl border border-neutral-800 flex items-center justify-center
-                         hover:border-neutral-600 hover:bg-neutral-900 transition-all duration-200"
+              className="w-9 h-9 rounded-xl flex items-center justify-center hover:opacity-80 transition-all duration-200"
+              style={{ border: '1px solid var(--border-default)' }}
             >
               {darkMode ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} />}
+            </button>
+            <button
+              onClick={() => signOut()}
+              className="lg:hidden w-9 h-9 rounded-xl flex items-center justify-center hover:opacity-80 transition-all duration-200"
+              style={{ border: '1px solid var(--border-default)' }}
+              title="Sign out"
+            >
+              <LogOut size={16} style={{ color: 'var(--text-dim)' }} />
             </button>
           </div>
         </div>
@@ -37,7 +59,7 @@ export default function Layout() {
 
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-neutral-900 pt-6 px-3 sticky top-14 h-[calc(100vh-3.5rem)]">
+        <aside className="hidden lg:flex flex-col w-52 shrink-0 pt-6 px-3 sticky top-14 h-[calc(100vh-3.5rem)]" style={{ borderRight: '1px solid var(--border-subtle)' }}>
           <nav className="flex flex-col gap-1">
             {tabs.map(({ to, icon: Icon, label }) => (
               <NavLink
@@ -47,10 +69,11 @@ export default function Layout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive
-                      ? 'bg-neutral-800/80 text-white'
-                      : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-900'
+                      ? 'text-[var(--text-primary)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
                   }`
                 }
+                style={({ isActive }) => isActive ? { backgroundColor: 'var(--bg-input)' } : {}}
               >
                 <Icon size={18} />
                 <span>{label}</span>
@@ -62,7 +85,7 @@ export default function Layout() {
             <button
               onClick={() => signOut()}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
-                         text-neutral-600 hover:text-red-400 hover:bg-red-500/5 transition-all duration-200 w-full"
+                         text-[var(--text-dim)] hover:text-red-400 hover:bg-red-500/5 transition-all duration-200 w-full"
             >
               <LogOut size={16} />
               <span>Sign out</span>
@@ -77,7 +100,7 @@ export default function Layout() {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 backdrop-blur-md border-t border-neutral-900 safe-area-pb z-50">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 backdrop-blur-md safe-area-pb z-50" style={{ backgroundColor: 'var(--bg-nav)', borderTop: '1px solid var(--border-subtle)' }}>
         <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
           {tabs.map(({ to, icon: Icon, label }) => (
             <NavLink
@@ -86,7 +109,7 @@ export default function Layout() {
               end={to === '/'}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-200 ${
-                  isActive ? 'text-white' : 'text-neutral-600'
+                  isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-dim)]'
                 }`
               }
             >
