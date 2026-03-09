@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWaterStore } from '../stores/waterStore';
+import { waterApi } from '../lib/api';
 import BottomSheet from '../components/BottomSheet';
 
 const QUICK_AMOUNTS = [150, 250, 350, 500];
@@ -18,9 +19,8 @@ function ProgressRing({ current, goal, size = 220, strokeWidth = 10 }) {
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--border-default)"
+          stroke="var(--text-faint)"
           strokeWidth={strokeWidth}
-          strokeOpacity="0.5"
         />
         <circle
           cx={size / 2}
@@ -59,9 +59,18 @@ export default function Water() {
   const [editAmount, setEditAmount] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [adding, setAdding] = useState(false);
+  const [weekHistory, setWeekHistory] = useState([]);
 
   useEffect(() => {
     fetchToday();
+    // Fetch last 7 days for history chart
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 6);
+    const fmt = (d) => d.toISOString().split('T')[0];
+    waterApi.getHistory(fmt(start), fmt(end))
+      .then((data) => setWeekHistory(Array.isArray(data) ? data : []))
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -143,6 +152,48 @@ export default function Water() {
           + Custom amount
         </button>
       </div>
+
+      {/* 7-day history chart */}
+      {weekHistory.length > 0 && (
+        <div className="card mb-8 animate-fade-in" style={{ animationDelay: '140ms' }}>
+          <p className="label mb-4">Last 7 Days</p>
+          <div className="flex items-end gap-1.5 h-20">
+            {weekHistory.map((day, i) => {
+              const pct = Math.min((day.totalMl / (day.goalMl || 2500)) * 100, 100);
+              const isToday = i === weekHistory.length - 1;
+              const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString([], { weekday: 'narrow' });
+              return (
+                <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex items-end" style={{ height: '60px' }}>
+                    <div
+                      className="w-full rounded-t-md transition-all duration-500"
+                      style={{
+                        height: `${Math.max(pct, 4)}%`,
+                        backgroundColor: pct >= 100
+                          ? 'rgb(34, 197, 94)'
+                          : isToday
+                          ? 'rgb(96, 165, 250)'
+                          : 'var(--text-faint)',
+                      }}
+                    />
+                  </div>
+                  <span className="text-[10px]" style={{ color: isToday ? 'var(--text-secondary)' : 'var(--text-dim)' }}>
+                    {dayLabel}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-dim)' }}>
+              <span className="w-2.5 h-2.5 rounded-sm inline-block bg-blue-400" /> Today
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-dim)' }}>
+              <span className="w-2.5 h-2.5 rounded-sm inline-block bg-green-500" /> Goal met
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Today's Entries */}
       <div className="animate-fade-in" style={{ animationDelay: '150ms' }}>

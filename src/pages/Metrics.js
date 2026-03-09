@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, ChevronDown, ChevronUp, FlaskConical, AlertTriangle, Loader2 } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, FlaskConical, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import { useMetricsStore } from '../stores/metricsStore';
 import { METRIC_TYPES, METRIC_GROUPS, DEFAULT_GROUPS, ADVANCED_GROUPS } from '../lib/constants';
 import { getBMIStatus, getMedicalStatus } from '../lib/bmi';
@@ -26,6 +26,7 @@ export default function Metrics() {
   const fetchSnapshot = useMetricsStore((s) => s.fetchSnapshot);
   const fetchInsights = useMetricsStore((s) => s.fetchInsights);
   const fetchCustomDefs = useMetricsStore((s) => s.fetchCustomDefs);
+  const deleteCustomDef = useMetricsStore((s) => s.deleteCustomDef);
   const fetchHistory = useMetricsStore((s) => s.fetchHistory);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -218,13 +219,25 @@ export default function Metrics() {
                   {customDefs.map((def) => {
                     const val = getVal(def.key);
                     return (
-                      <MetricCard
-                        key={def.key}
-                        metricType={def.key}
-                        label={def.label}
-                        value={val}
-                        unit={def.unit}
-                      />
+                      <div key={def.key} className="relative">
+                        <MetricCard
+                          metricType={def.key}
+                          label={def.label}
+                          value={val}
+                          unit={def.unit}
+                        />
+                        <button
+                          onClick={async () => {
+                            if (window.confirm(`Delete custom metric "${def.label}"?`)) {
+                              await deleteCustomDef(def.key);
+                            }
+                          }}
+                          className="absolute top-2 right-2 p-1.5 rounded-lg text-red-500/40 hover:text-red-400 hover:bg-red-500/5 transition-all duration-200"
+                          title="Delete metric"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>

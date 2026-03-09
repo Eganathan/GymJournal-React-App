@@ -14,7 +14,7 @@ const tabs = [
 export default function Layout() {
   const [darkMode, setDarkMode] = useState(() => {
     const stored = localStorage.getItem('theme');
-    return stored ? stored === 'dark' : true;
+    return stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
   const { user, signOut } = useAuthStore();
 

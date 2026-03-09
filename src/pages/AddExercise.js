@@ -175,7 +175,7 @@ export default function AddExercise() {
               : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
             }
           >
-            {cat.name}
+            {cat.shortName || cat.displayName}
           </button>
         ))}
       </div>
@@ -270,7 +270,7 @@ export default function AddExercise() {
             <select value={customCategoryId} onChange={(e) => setCustomCategoryId(e.target.value)} className="w-full">
               <option value="">Select...</option>
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                <option key={cat.id} value={cat.id}>{cat.displayName}</option>
               ))}
             </select>
           </div>

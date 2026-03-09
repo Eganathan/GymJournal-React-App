@@ -1,6 +1,7 @@
 /* global catalyst */
 import { create } from 'zustand';
 import { loadCatalystSDK } from '../lib/catalystLoader';
+import { setCurrentUser } from '../lib/api';
 
 const CATALYST_LOGIN_URL = '/__catalyst/auth/login';
 
@@ -31,12 +32,14 @@ export const useAuthStore = create((set) => ({
     try {
       const response = await catalyst.userManagement.getCurrentProjectUser();
       const user = response.content || response;
+      const userId = user.user_id || user.zuid || '';
+      setCurrentUser(userId);
       set({
         user: {
           email: user.email_id || user.email || '',
           firstName: user.first_name || '',
           lastName: user.last_name || '',
-          userId: user.user_id || user.zuid || '',
+          userId,
         },
         isAuthenticated: true,
         isLoading: false,

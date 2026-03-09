@@ -1,9 +1,19 @@
 /**
  * API client for GymJournal Server.
  * Credentials included for Catalyst session cookie auth.
+ *
+ * X-Catalyst-Uid: set after login with the user_id from getCurrentProjectUser().
+ * Used server-side to log expected vs actual ZGS-injected user ID.
  */
 
 const BASE_URL = 'https://appsail-10119736618.development.catalystappsail.com';
+
+let _currentUserId = null;
+
+/** Called by authStore after login to bind the verified Catalyst user_id. */
+export function setCurrentUser(userId) {
+  _currentUserId = userId ? String(userId) : null;
+}
 
 async function request(path, options = {}) {
   const url = `${BASE_URL}${path}`;
@@ -12,6 +22,7 @@ async function request(path, options = {}) {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...(_currentUserId ? { 'X-Catalyst-Uid': _currentUserId } : {}),
       ...options.headers,
     },
   });
@@ -213,6 +224,45 @@ export const routinesApi = {
   /** Clone a routine to own library */
   clone: (id) =>
     request(`/api/v1/routines/${id}/clone`, { method: 'POST' }),
+};
+
+// ── Media ─────────────────────────────────────────────────
+
+export const mediaApi = {
+  /**
+   * Upload a file to Catalyst FileStore.
+   * Returns { url, fileId, fileName, mimeType, sizeBytes }.
+   *
+   * Do NOT pass Content-Type — the browser sets it automatically
+   * with the correct multipart boundary for FormData.
+   *
+   * @param {File} file - File object from <input type="file">
+   * @param {string} [folder] - "exercises" | "routines" | "misc" (default: "misc")
+   */
+  upload: async (file, folder) => {
+    const form = new FormData();
+    form.append('file', file);
+    if (folder) form.append('folder', folder);
+
+    const url = `${BASE_URL}/api/v1/media/upload`;
+    const headers = _currentUserId ? { 'X-Catalyst-Uid': _currentUserId } : {};
+
+    const res = await fetch(url, {
+      method: 'POST',
+      credentials: 'include',
+      headers,          // intentionally no Content-Type — browser sets multipart boundary
+      body: form,
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      const msg = json.error?.message || `Upload failed (${res.status})`;
+      const err = new Error(msg);
+      err.code = json.error?.code || res.status;
+      throw err;
+    }
+    return json.data;
+  },
 };
 
 // ── Workouts ──────────────────────────────────────────────

@@ -71,6 +71,18 @@ export default function Dashboard() {
   const activeWorkout = sessions.find((s) => s.status === 'IN_PROGRESS');
   const alertInsights = (insights || []).filter((i) => i.status !== 'OK').slice(0, 3);
 
+  // Workouts this week (Mon–Sun)
+  const startOfWeek = (() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    const day = d.getDay();
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    return d;
+  })();
+  const workoutsThisWeek = sessions.filter(
+    (s) => s.status === 'COMPLETED' && new Date(s.completedAt || s.startedAt) >= startOfWeek
+  ).length;
+
   return (
     <div className="page">
       {/* Greeting */}
@@ -105,6 +117,22 @@ export default function Dashboard() {
         <Link to="/metrics/log" className="btn-secondary flex items-center justify-center gap-2 text-sm !py-3.5">
           <Activity size={16} /> Log Metrics
         </Link>
+      </div>
+
+      {/* This week */}
+      <div className="grid grid-cols-3 gap-3 mb-10 animate-fade-in" style={{ animationDelay: '80ms' }}>
+        <div className="card text-center !py-4">
+          <p className="text-2xl font-bold">{workoutsThisWeek}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>This week</p>
+        </div>
+        <div className="card text-center !py-4">
+          <p className="text-2xl font-bold">{waterProgress ?? 0}<span className="text-sm font-normal">%</span></p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>Hydration</p>
+        </div>
+        <div className="card text-center !py-4">
+          <p className="text-2xl font-bold">{weight != null ? Number(weight).toFixed(1) : '--'}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>Weight kg</p>
+        </div>
       </div>
 
       {/* Body Snapshot */}

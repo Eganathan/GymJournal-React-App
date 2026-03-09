@@ -110,6 +110,11 @@ export const useRoutineStore = create((set, get) => ({
       notes: '',
       order: items.length + 1,
     });
+    items.push({
+      type: 'REST',
+      durationSeconds: 90,
+      order: items.length + 1,
+    });
 
     try {
       const updated = await routinesApi.update(routineId, { ...routine, items });

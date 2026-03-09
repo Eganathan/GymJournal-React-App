@@ -1,20 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Dumbbell, ChevronRight, Loader2, Copy, Search, Globe, Lock } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, Dumbbell, ChevronRight, Loader2, Copy, Search, Globe, Lock, Play, Trash2 } from 'lucide-react';
 import { useRoutineStore } from '../stores/routineStore';
+import { useWorkoutStore } from '../stores/workoutStore';
 import { routinesApi } from '../lib/api';
 
 export default function Routines() {
+  const navigate = useNavigate();
   const routines = useRoutineStore((s) => s.routines);
   const isLoading = useRoutineStore((s) => s.isLoading);
   const deleteRoutine = useRoutineStore((s) => s.deleteRoutine);
   const fetchRoutines = useRoutineStore((s) => s.fetchRoutines);
+  const startWorkout = useWorkoutStore((s) => s.startWorkout);
 
   const [tab, setTab] = useState('mine'); // 'mine' | 'browse'
   const [publicRoutines, setPublicRoutines] = useState([]);
   const [publicLoading, setPublicLoading] = useState(false);
   const [publicSearch, setPublicSearch] = useState('');
   const [cloning, setCloning] = useState(null);
+  const [starting, setStarting] = useState(null);
 
   useEffect(() => {
     fetchRoutines();
@@ -38,6 +42,13 @@ export default function Routines() {
     }, 300);
     return () => clearTimeout(timer);
   }, [tab, publicSearch]);
+
+  const handleStart = async (routineId) => {
+    setStarting(routineId);
+    const session = await startWorkout({ routineId });
+    if (session) navigate(`/workouts/${session.id}`);
+    setStarting(null);
+  };
 
   const handleClone = async (routineId) => {
     setCloning(routineId);
@@ -69,7 +80,7 @@ export default function Routines() {
             tab === 'mine' ? 'shadow-sm' : ''
           }`}
           style={tab === 'mine'
-            ? { backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }
+            ? { backgroundColor: 'var(--bg-raised)', color: 'var(--text-primary)' }
             : { color: 'var(--text-muted)' }
           }
         >
@@ -82,7 +93,7 @@ export default function Routines() {
             tab === 'browse' ? 'shadow-sm' : ''
           }`}
           style={tab === 'browse'
-            ? { backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }
+            ? { backgroundColor: 'var(--bg-raised)', color: 'var(--text-primary)' }
             : { color: 'var(--text-muted)' }
           }
         >
@@ -115,26 +126,43 @@ export default function Routines() {
           ) : (
             <div className="space-y-3 stagger">
               {routines.map((r) => (
-                <div key={r.id} className="card flex items-center gap-3 animate-fade-in">
-                  <Link to={`/routines/${r.id}`} className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{r.name}</p>
-                    {r.description && <p className="text-sm truncate mt-0.5" style={{ color: 'var(--text-dim)' }}>{r.description}</p>}
-                    <p className="text-xs mt-1.5 flex items-center gap-2" style={{ color: 'var(--text-dim)' }}>
-                      <span>{r.itemCount ?? (r.items || r.exercises || []).length} exercises</span>
-                      <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
-                      <span>{r.isPublic ? 'Public' : 'Private'}</span>
-                    </p>
-                  </Link>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => { if (window.confirm('Delete this routine?')) deleteRoutine(r.id); }}
-                      className="text-xs text-red-500/60 hover:text-red-400 px-2 py-1 rounded-lg hover:bg-red-500/5 transition-all duration-200"
-                    >
-                      Delete
-                    </button>
-                    <Link to={`/routines/${r.id}`}>
+                <div key={r.id} className="card animate-fade-in">
+                  <div className="flex items-start gap-3">
+                    <Link to={`/routines/${r.id}`} className="flex-1 min-w-0">
+                      <p className="font-semibold truncate">{r.name}</p>
+                      {r.description && <p className="text-sm truncate mt-0.5" style={{ color: 'var(--text-dim)' }}>{r.description}</p>}
+                      <p className="text-xs mt-1.5 flex items-center gap-2" style={{ color: 'var(--text-dim)' }}>
+                        <span>{r.itemCount ?? (r.items || r.exercises || []).length} exercises</span>
+                        {r.estimatedMinutes > 0 && (
+                          <>
+                            <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
+                            <span>~{r.estimatedMinutes}min</span>
+                          </>
+                        )}
+                        <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
+                        <span>{r.isPublic ? 'Public' : 'Private'}</span>
+                      </p>
+                    </Link>
+                    <Link to={`/routines/${r.id}`} className="shrink-0 mt-0.5">
                       <ChevronRight size={16} style={{ color: 'var(--text-faint)' }} />
                     </Link>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <button
+                      onClick={() => handleStart(r.id)}
+                      disabled={starting === r.id}
+                      className="flex-1 btn-primary !py-2 text-sm flex items-center justify-center gap-1.5"
+                    >
+                      {starting === r.id ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+                      Start Workout
+                    </button>
+                    <button
+                      onClick={() => { if (window.confirm('Delete this routine?')) deleteRoutine(r.id); }}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-red-500/40 hover:text-red-400 hover:bg-red-500/5 transition-all duration-200 border"
+                      style={{ borderColor: 'var(--border-default)' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               ))}

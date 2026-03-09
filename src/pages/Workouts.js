@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Dumbbell, ChevronRight, Loader2, Plus, Clock, Play } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Dumbbell, ChevronRight, Loader2, Plus, Clock, Play, Zap, Trash2 } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
 
 const STATUS_BADGE = {
@@ -21,15 +21,25 @@ function formatDuration(startedAt, completedAt) {
 }
 
 export default function Workouts() {
+  const navigate = useNavigate();
   const sessions = useWorkoutStore((s) => s.sessions);
   const isLoading = useWorkoutStore((s) => s.isLoading);
   const fetchSessions = useWorkoutStore((s) => s.fetchSessions);
   const deleteWorkout = useWorkoutStore((s) => s.deleteWorkout);
+  const startWorkout = useWorkoutStore((s) => s.startWorkout);
+  const [startingEmpty, setStartingEmpty] = useState(false);
 
   useEffect(() => {
     fetchSessions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleQuickStart = async () => {
+    setStartingEmpty(true);
+    const session = await startWorkout({});
+    if (session) navigate(`/workouts/${session.id}`);
+    setStartingEmpty(false);
+  };
 
   const activeWorkout = sessions.find((s) => s.status === 'IN_PROGRESS');
 
@@ -53,12 +63,30 @@ export default function Workouts() {
         </Link>
       )}
 
-      <div className="flex items-center justify-between mb-6 animate-fade-in">
+      <div className="flex items-center justify-between mb-4 animate-fade-in">
         <h1 className="text-2xl font-bold">Workouts</h1>
         <Link to="/routines" className="btn-primary flex items-center gap-2 !py-2.5 !px-4 text-sm">
-          <Plus size={14} /> New
+          <Plus size={14} /> From Routine
         </Link>
       </div>
+
+      {/* Quick start empty workout */}
+      <button
+        onClick={handleQuickStart}
+        disabled={startingEmpty}
+        className="w-full card flex items-center gap-3 mb-6 animate-fade-in text-left hover:border-[var(--border-default)] transition-all duration-200"
+        style={{ animationDelay: '30ms', borderStyle: 'dashed' }}
+      >
+        {startingEmpty ? (
+          <Loader2 size={18} className="shrink-0 animate-spin" style={{ color: 'var(--text-dim)' }} />
+        ) : (
+          <Zap size={18} className="shrink-0" style={{ color: 'var(--text-dim)' }} />
+        )}
+        <div>
+          <p className="font-medium text-sm">Quick Start</p>
+          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Start an empty workout — add exercises as you go</p>
+        </div>
+      </button>
 
       {isLoading && sessions.length === 0 ? (
         <div className="flex items-center justify-center py-20">
@@ -98,7 +126,7 @@ export default function Workouts() {
                         </span>
                       </>
                     )}
-                    {session.exerciseCount != null && (
+                    {session.exerciseCount != null && session.exerciseCount > 0 && (
                       <>
                         <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
                         <span>{session.exerciseCount} exercises</span>
@@ -110,13 +138,13 @@ export default function Workouts() {
                   {!isActive && (
                     <button
                       onClick={() => { if (window.confirm('Delete this workout?')) deleteWorkout(session.id); }}
-                      className="text-xs text-red-500/60 hover:text-red-400 px-2 py-1 rounded-lg hover:bg-red-500/5 transition-all duration-200"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-red-500/40 hover:text-red-400 hover:bg-red-500/5 transition-all duration-200"
                     >
-                      Delete
+                      <Trash2 size={13} />
                     </button>
                   )}
-                  <Link to={`/workouts/${session.id}`}>
-                    <ChevronRight size={16} style={{ color: 'var(--text-faint)' }} />
+                  <Link to={`/workouts/${session.id}`} className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200" style={{ color: 'var(--text-faint)' }}>
+                    <ChevronRight size={16} />
                   </Link>
                 </div>
               </div>

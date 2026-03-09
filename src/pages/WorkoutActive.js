@@ -13,7 +13,7 @@ function formatElapsed(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function SetRow({ set, index, sessionId, exerciseId, onUpdate, onDelete, isCompleted: sessionCompleted }) {
+function SetRow({ set, index, sessionId, exerciseId, onUpdate, onDelete, isCompleted: sessionCompleted, isPB }) {
   const [reps, setReps] = useState(set.actualReps ?? set.plannedReps ?? '');
   const [weight, setWeight] = useState(set.actualWeightKg ?? set.plannedWeightKg ?? '');
   const [rpe, setRpe] = useState(set.rpe ?? '');
@@ -42,9 +42,6 @@ function SetRow({ set, index, sessionId, exerciseId, onUpdate, onDelete, isCompl
     <tr className={`transition-colors duration-200 ${completed ? 'opacity-70' : ''}`}
         style={completed ? { backgroundColor: 'rgba(34, 197, 94, 0.05)' } : {}}>
       <td className="py-2 pr-2 text-center text-sm" style={{ color: 'var(--text-dim)' }}>{index + 1}</td>
-      <td className="py-2 pr-2 text-center text-xs" style={{ color: 'var(--text-dim)' }}>
-        {set.plannedReps || '-'} × {set.plannedWeightKg || '-'}kg
-      </td>
       <td className="py-2 pr-1">
         <input
           type="number"
@@ -77,12 +74,17 @@ function SetRow({ set, index, sessionId, exerciseId, onUpdate, onDelete, isCompl
           className="w-full text-center !py-1.5 text-sm"
           min="1"
           max="10"
-          placeholder="-"
+          placeholder="1–10"
+          title="Rate of Perceived Exertion: 1 (very easy) – 10 (max effort)"
         />
       </td>
       <td className="py-2 text-center">
         {completed ? (
-          <Check size={16} className="text-green-500 mx-auto" />
+          isPB || set.isPersonalBest ? (
+            <Trophy size={16} className="text-amber-400 mx-auto" />
+          ) : (
+            <Check size={16} className="text-green-500 mx-auto" />
+          )
         ) : (
           <button
             onClick={handleComplete}
@@ -115,6 +117,7 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
   const [, forceUpdate] = useState(0);
   const [showRest, setShowRest] = useState(false);
   const [pb, setPb] = useState(null);
+  const [lastSession, setLastSession] = useState(null);
 
   const sets = exercise.sets || [];
   const restSeconds = exercise.restAfterSeconds || exercise.durationSeconds || 0;
@@ -125,6 +128,12 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
       .then((data) => {
         const best = Array.isArray(data) ? data[0] : data?.maxWeight || data;
         if (best) setPb(best);
+      })
+      .catch(() => {});
+    workoutsApi.getExerciseHistory(exercise.exerciseId)
+      .then((data) => {
+        const entries = Array.isArray(data) ? data : data?.entries || [];
+        if (entries.length > 0) setLastSession(entries[0]);
       })
       .catch(() => {});
   }, [exercise.exerciseId]);
@@ -156,23 +165,44 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
 
   return (
     <div className="card mb-4 animate-fade-in">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold">{exercise.exerciseName}</h3>
-        {pb && (
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
-            <Trophy size={10} /> PB: {pb.actualWeightKg ?? pb.value ?? ''}kg ({pb.actualReps ?? ''}r)
-          </span>
-        )}
+      <div className="flex items-start justify-between mb-3">
+        <div className="min-w-0">
+          <h3 className="font-semibold">{exercise.exerciseName}</h3>
+          {lastSession && (
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-dim)' }}>
+              Last: {lastSession.actualReps ?? lastSession.reps ?? '?'} × {lastSession.actualWeightKg ?? lastSession.weightKg ?? '?'}kg
+              {lastSession.completedAt && (
+                <span className="ml-1">· {new Date(lastSession.completedAt).toLocaleDateString()}</span>
+              )}
+            </p>
+          )}
+        </div>
+        {pb && (() => {
+          const w = parseFloat(pb.actualWeightKg ?? pb.value) || 0;
+          const r = parseInt(pb.actualReps) || 0;
+          const orm = r === 1 ? w : Math.round(w * (1 + r / 30) * 10) / 10;
+          return (
+            <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
+                <Trophy size={10} /> PB: {w}kg × {r}r
+              </span>
+              {orm > 0 && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-raised)', color: 'var(--text-dim)' }}>
+                  ~{orm}kg 1RM
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr style={{ color: 'var(--text-dim)' }}>
               <th className="text-[10px] uppercase font-medium pb-2 pr-2 text-center w-8">Set</th>
-              <th className="text-[10px] uppercase font-medium pb-2 pr-2 text-center">Target</th>
               <th className="text-[10px] uppercase font-medium pb-2 pr-1 text-center">Reps</th>
               <th className="text-[10px] uppercase font-medium pb-2 pr-1 text-center">Kg</th>
-              <th className="text-[10px] uppercase font-medium pb-2 pr-1 text-center w-14">RPE</th>
+              <th className="text-[10px] uppercase font-medium pb-2 pr-1 text-center w-14" title="Rate of Perceived Exertion (1–10)">RPE</th>
               <th className="text-[10px] uppercase font-medium pb-2 text-center w-10"></th>
             </tr>
           </thead>
@@ -187,6 +217,7 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
                 onUpdate={handleSetComplete}
                 onDelete={handleDeleteSet}
                 isCompleted={sessionCompleted}
+                isPB={!!s.isPersonalBest}
               />
             ))}
           </tbody>
@@ -310,33 +341,70 @@ function WorkoutNotes({ sessionId, initialNotes, disabled }) {
 }
 
 function CompletionCard({ result, onDone }) {
-  // PBs are embedded in exercises[].sets[].isPersonalBest — extract them
+  const allSets = (result?.exercises || []).flatMap((e) => e.sets || []);
+  const completedSets = allSets.filter((s) => s.completedAt);
+
   const pbs = (result?.exercises || []).flatMap((ex) =>
     (ex.sets || [])
       .filter((s) => s.isPersonalBest)
-      .map((s) => ({ exerciseName: ex.exerciseName, value: s.actualWeightKg, unit: 'kg' }))
+      .map((s) => ({ exerciseName: ex.exerciseName, value: s.actualWeightKg, reps: s.actualReps }))
   );
+
   const exerciseCount = (result?.exercises || []).filter((e) => e.itemType === 'EXERCISE').length;
-  const setCount = (result?.exercises || []).flatMap((e) => e.sets || []).filter((s) => s.completedAt).length;
-  const summary = { exerciseCount, setCount };
+  const setCount = completedSets.length;
+  const totalVolume = completedSets.reduce((sum, s) => {
+    const w = parseFloat(s.actualWeightKg) || 0;
+    const r = parseInt(s.actualReps) || 0;
+    return sum + w * r;
+  }, 0);
+
+  const durationMs = result?.startedAt && result?.completedAt
+    ? new Date(result.completedAt).getTime() - new Date(result.startedAt).getTime()
+    : null;
+  const durationStr = durationMs
+    ? (() => {
+        const mins = Math.floor(durationMs / 60000);
+        if (mins < 60) return `${mins}m`;
+        return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+      })()
+    : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
       <div className="card max-w-sm w-full text-center py-10 px-6 animate-fade-in">
         <Trophy size={48} className="mx-auto mb-4 text-amber-400" />
         <h2 className="text-2xl font-bold mb-2">Workout Complete!</h2>
-        <div className="space-y-1 mb-6" style={{ color: 'var(--text-muted)' }}>
-          {summary.exerciseCount != null && <p className="text-sm">{summary.exerciseCount} exercises</p>}
-          {summary.setCount != null && <p className="text-sm">{summary.setCount} sets completed</p>}
-          {summary.duration && <p className="text-sm">{summary.duration}</p>}
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="rounded-xl py-3" style={{ backgroundColor: 'var(--bg-raised)' }}>
+            <p className="text-lg font-bold">{exerciseCount}</p>
+            <p className="text-[10px] uppercase mt-0.5" style={{ color: 'var(--text-dim)' }}>Exercises</p>
+          </div>
+          <div className="rounded-xl py-3" style={{ backgroundColor: 'var(--bg-raised)' }}>
+            <p className="text-lg font-bold">{setCount}</p>
+            <p className="text-[10px] uppercase mt-0.5" style={{ color: 'var(--text-dim)' }}>Sets</p>
+          </div>
+          <div className="rounded-xl py-3" style={{ backgroundColor: 'var(--bg-raised)' }}>
+            <p className="text-lg font-bold">{durationStr || '--'}</p>
+            <p className="text-[10px] uppercase mt-0.5" style={{ color: 'var(--text-dim)' }}>Duration</p>
+          </div>
         </div>
+
+        {totalVolume > 0 && (
+          <div className="rounded-xl py-3 px-4 mb-6" style={{ backgroundColor: 'var(--bg-raised)' }}>
+            <p className="text-2xl font-bold">{totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)}t` : `${Math.round(totalVolume)}kg`}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>Total Volume Lifted</p>
+          </div>
+        )}
+
         {pbs.length > 0 && (
           <div className="mb-6">
             <p className="text-sm font-semibold mb-2 text-amber-400">Personal Bests</p>
             {pbs.map((pb, i) => (
               <div key={i} className="flex items-center gap-2 justify-center text-sm mb-1">
                 <Trophy size={14} className="text-amber-400" />
-                <span>{pb.exerciseName || pb.exercise}: {pb.value}{pb.unit || 'kg'}</span>
+                <span>{pb.exerciseName}: {pb.value}kg × {pb.reps}r</span>
               </div>
             ))}
           </div>
@@ -371,6 +439,11 @@ export default function WorkoutActive() {
   const [exResults, setExResults] = useState([]);
   const [exLoading, setExLoading] = useState(false);
   const [addingExId, setAddingExId] = useState(null);
+  const [exCategories, setExCategories] = useState([]);
+  const [exCategoryFilter, setExCategoryFilter] = useState('');
+  const [exPage, setExPage] = useState(1);
+  const [exHasMore, setExHasMore] = useState(false);
+  const [exLoadingMore, setExLoadingMore] = useState(false);
 
   useEffect(() => {
     fetchSession(id);
@@ -393,25 +466,44 @@ export default function WorkoutActive() {
     }
   }, [activeSession?.name, editingName]);
 
-  // Exercise search
-  const searchExercises = useCallback(async (q) => {
-    if (!q.trim()) { setExResults([]); return; }
-    setExLoading(true);
+  // Fetch categories once when add-exercise sheet opens
+  useEffect(() => {
+    if (!showAddExercise || exCategories.length > 0) return;
+    exercisesApi.getCategories()
+      .then((data) => setExCategories(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [showAddExercise, exCategories.length]);
+
+  // Exercise search (with category filter + pagination)
+  const searchExercises = useCallback(async (q, categoryId, pageNum = 1, append = false) => {
+    if (pageNum === 1) setExLoading(true);
+    else setExLoadingMore(true);
     try {
-      const data = await exercisesApi.list({ search: q, pageSize: 10 });
-      setExResults(Array.isArray(data) ? data : data?.exercises || []);
+      const data = await exercisesApi.list({
+        search: q || undefined,
+        categoryId: categoryId || undefined,
+        page: pageNum,
+        pageSize: 15,
+      });
+      const list = Array.isArray(data) ? data : data?.exercises || [];
+      const more = Array.isArray(data) ? list.length === 15 : !!data?.pagination?.hasMore;
+      if (append) setExResults((prev) => [...prev, ...list]);
+      else setExResults(list);
+      setExHasMore(more);
+      setExPage(pageNum);
     } catch {
-      setExResults([]);
+      if (!append) setExResults([]);
     } finally {
       setExLoading(false);
+      setExLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
     if (!showAddExercise) return;
-    const timer = setTimeout(() => searchExercises(exSearch), 300);
+    const timer = setTimeout(() => searchExercises(exSearch, exCategoryFilter, 1), 300);
     return () => clearTimeout(timer);
-  }, [exSearch, showAddExercise, searchExercises]);
+  }, [exSearch, exCategoryFilter, showAddExercise, searchExercises]);
 
   const handleAddExerciseToWorkout = async (exercise) => {
     setAddingExId(exercise.id);
@@ -424,6 +516,12 @@ export default function WorkoutActive() {
       setNumber: 1,
       plannedReps: 10,
       plannedWeightKg: '0',
+    });
+    // Auto-add a 90s rest block after the exercise
+    await addSet(id, {
+      itemType: 'REST',
+      orderInSession: maxOrder + 2,
+      durationSeconds: 90,
     });
     await fetchSession(id);
     setAddingExId(null);
@@ -571,8 +669,13 @@ export default function WorkoutActive() {
       )}
 
       {/* Add Exercise Bottom Sheet */}
-      <BottomSheet open={showAddExercise} onClose={() => { setShowAddExercise(false); setExSearch(''); }} title="Add Exercise">
-        <div className="relative mb-4">
+      <BottomSheet
+        open={showAddExercise}
+        onClose={() => { setShowAddExercise(false); setExSearch(''); setExCategoryFilter(''); setExResults([]); }}
+        title="Add Exercise"
+      >
+        {/* Search */}
+        <div className="relative mb-3">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
           <input
             type="text"
@@ -583,12 +686,43 @@ export default function WorkoutActive() {
             autoFocus
           />
         </div>
+
+        {/* Category chips */}
+        {exCategories.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+            <button
+              onClick={() => setExCategoryFilter('')}
+              className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border"
+              style={!exCategoryFilter
+                ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+                : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+              }
+            >
+              All
+            </button>
+            {exCategories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setExCategoryFilter(exCategoryFilter === cat.id ? '' : cat.id)}
+                className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border"
+                style={exCategoryFilter === cat.id
+                  ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+                  : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                }
+              >
+                {cat.shortName || cat.displayName}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Exercise list */}
         {exLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 size={20} className="animate-spin" style={{ color: 'var(--text-dim)' }} />
           </div>
         ) : (
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div className="space-y-2 max-h-72 overflow-y-auto">
             {exResults.map((ex) => (
               <button
                 key={ex.id}
@@ -598,8 +732,11 @@ export default function WorkoutActive() {
               >
                 <div className="min-w-0">
                   <p className="font-medium text-sm">{ex.name}</p>
-                  <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
                     {ex.primaryMuscle || ex.muscleGroup || ''}
+                    {(ex.equipment || ex.equipmentName) && (
+                      <span className="ml-1.5 before:content-['·'] before:mr-1.5">{ex.equipment || ex.equipmentName}</span>
+                    )}
                   </p>
                 </div>
                 {addingExId === ex.id ? (
@@ -609,11 +746,21 @@ export default function WorkoutActive() {
                 )}
               </button>
             ))}
-            {exSearch && !exLoading && exResults.length === 0 && (
-              <p className="text-center text-sm py-6" style={{ color: 'var(--text-dim)' }}>No exercises found</p>
+            {!exLoading && exResults.length === 0 && (
+              <p className="text-center text-sm py-6" style={{ color: 'var(--text-dim)' }}>
+                {exSearch || exCategoryFilter ? 'No exercises found' : 'Select a category or search'}
+              </p>
             )}
-            {!exSearch && (
-              <p className="text-center text-sm py-6" style={{ color: 'var(--text-dim)' }}>Type to search exercises</p>
+            {exHasMore && (
+              <button
+                onClick={() => searchExercises(exSearch, exCategoryFilter, exPage + 1, true)}
+                disabled={exLoadingMore}
+                className="w-full py-2.5 text-sm transition-all duration-200 flex items-center justify-center gap-2"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                {exLoadingMore ? <Loader2 size={12} className="animate-spin" /> : null}
+                Load more
+              </button>
             )}
           </div>
         )}
