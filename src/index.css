@@ -6,6 +6,7 @@
 :root {
   --bg-base: #ffffff;
   --bg-raised: #f5f5f5;
+  --bg-sheet: #ffffff;
   --bg-input: rgba(245,245,245,0.8);
   --bg-nav: rgba(255,255,255,0.95);
   --border-default: #e5e5e5;
@@ -25,10 +26,11 @@
 .dark {
   --bg-base: #0a0a0a;
   --bg-raised: #141414;
+  --bg-sheet: #1c1c1e;
   --bg-input: rgba(23,23,23,0.8);
   --bg-nav: rgba(10,10,10,0.95);
-  --border-default: #262626;
-  --border-subtle: #171717;
+  --border-default: #2c2c2e;
+  --border-subtle: #1c1c1e;
   --text-primary: #ffffff;
   --text-secondary: #a3a3a3;
   --text-muted: #737373;
@@ -112,7 +114,13 @@
     background-color: var(--bg-raised);
   }
   .page {
-    @apply px-6 pt-6 pb-28 lg:pb-8 max-w-3xl mx-auto min-h-screen;
+    @apply px-6 pt-6 max-w-3xl mx-auto min-h-screen;
+    padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
+  }
+  @media (min-width: 1024px) {
+    .page {
+      padding-bottom: 2rem;
+    }
   }
   .page-title {
     @apply text-2xl font-bold mb-6;

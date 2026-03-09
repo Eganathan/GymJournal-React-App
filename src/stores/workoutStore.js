@@ -1,23 +1,28 @@
 import { create } from 'zustand';
 import { workoutsApi } from '../lib/api';
 
-// IDs from the server may be numbers or strings (server serializes Long as JSON string);
-// URL params from useParams() are always strings. Use sameId() for all comparisons.
 const sameId = (a, b) => String(a) === String(b);
+
+const SESSIONS_TTL = 60 * 1000;   // 1 minute for sessions list
+const SESSION_TTL  = 30 * 1000;   // 30 seconds for active session detail
 
 export const useWorkoutStore = create((set, get) => ({
   sessions: [],
   activeSession: null,
   isLoading: false,
   error: null,
+  _lastFetchedList: 0,
+  _lastFetchedSession: {}, // { [id]: timestamp }
 
-  /** Fetch workout sessions list */
-  fetchSessions: async (params = {}) => {
+  fetchSessions: async (params = {}, force = false) => {
+    const { _lastFetchedList, sessions } = get();
+    if (!force && sessions.length > 0 && Date.now() - _lastFetchedList < SESSIONS_TTL) return;
+
     set({ isLoading: true, error: null });
     try {
       const data = await workoutsApi.list(params);
       const list = Array.isArray(data) ? data : data?.sessions || data?.workouts || [];
-      set({ sessions: list });
+      set({ sessions: list, _lastFetchedList: Date.now() });
     } catch (err) {
       set({ error: err.message });
     } finally {
@@ -25,12 +30,26 @@ export const useWorkoutStore = create((set, get) => ({
     }
   },
 
-  /** Fetch a single session with full details */
-  fetchSession: async (id) => {
+  fetchSession: async (id, force = false) => {
+    const { _lastFetchedSession, activeSession } = get();
+    const lastFetched = _lastFetchedSession[id] || 0;
+    // Don't cache IN_PROGRESS sessions — they change every set
+    const isActive = activeSession?.status === 'IN_PROGRESS' && sameId(activeSession?.id, id);
+    if (
+      !force &&
+      !isActive &&
+      activeSession &&
+      sameId(activeSession.id, id) &&
+      Date.now() - lastFetched < SESSION_TTL
+    ) return activeSession;
+
     set({ isLoading: true, error: null });
     try {
       const session = await workoutsApi.getById(id);
-      set({ activeSession: session });
+      set({
+        activeSession: session,
+        _lastFetchedSession: { ...get()._lastFetchedSession, [id]: Date.now() },
+      });
       return session;
     } catch (err) {
       set({ error: err.message });
@@ -40,12 +59,15 @@ export const useWorkoutStore = create((set, get) => ({
     }
   },
 
-  /** Start a new workout session */
   startWorkout: async (body = {}) => {
     set({ isLoading: true, error: null });
     try {
       const session = await workoutsApi.start(body);
-      set({ activeSession: session });
+      set((s) => ({
+        activeSession: session,
+        sessions: [session, ...s.sessions],
+        _lastFetchedList: 0, // invalidate list
+      }));
       return session;
     } catch (err) {
       set({ error: err.message });
@@ -55,7 +77,6 @@ export const useWorkoutStore = create((set, get) => ({
     }
   },
 
-  /** Update session name/notes */
   updateSession: async (id, updates) => {
     set({ error: null });
     try {
@@ -70,7 +91,6 @@ export const useWorkoutStore = create((set, get) => ({
     }
   },
 
-  /** Complete a workout */
   completeWorkout: async (id) => {
     set({ error: null });
     try {
@@ -79,6 +99,7 @@ export const useWorkoutStore = create((set, get) => ({
         activeSession: sameId(s.activeSession?.id, id)
           ? { ...s.activeSession, status: 'COMPLETED', ...result }
           : s.activeSession,
+        _lastFetchedList: 0, // invalidate list so dashboard shows updated status
       }));
       return result;
     } catch (err) {
@@ -87,7 +108,6 @@ export const useWorkoutStore = create((set, get) => ({
     }
   },
 
-  /** Delete a workout */
   deleteWorkout: async (id) => {
     set({ error: null });
     try {
@@ -95,13 +115,13 @@ export const useWorkoutStore = create((set, get) => ({
       set((s) => ({
         sessions: s.sessions.filter((w) => !sameId(w.id, id)),
         activeSession: sameId(s.activeSession?.id, id) ? null : s.activeSession,
+        _lastFetchedList: 0, // invalidate
       }));
     } catch (err) {
       set({ error: err.message });
     }
   },
 
-  /** Add a set to the active session */
   addSet: async (sessionId, setData) => {
     set({ error: null });
     try {
@@ -131,7 +151,6 @@ export const useWorkoutStore = create((set, get) => ({
     }
   },
 
-  /** Update a set */
   updateSet: async (sessionId, setId, updates) => {
     set({ error: null });
     try {
@@ -151,7 +170,6 @@ export const useWorkoutStore = create((set, get) => ({
     }
   },
 
-  /** Delete a set */
   deleteSet: async (sessionId, setId) => {
     set({ error: null });
     try {

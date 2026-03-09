@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Dumbbell, ChevronRight, Loader2, Plus, Clock, Play, Zap, Trash2 } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const STATUS_BADGE = {
   IN_PROGRESS: { bg: 'bg-amber-500/10', text: 'text-amber-500', label: 'In Progress' },
@@ -28,6 +29,7 @@ export default function Workouts() {
   const deleteWorkout = useWorkoutStore((s) => s.deleteWorkout);
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const [startingEmpty, setStartingEmpty] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     fetchSessions();
@@ -137,7 +139,7 @@ export default function Workouts() {
                 <div className="flex items-center gap-1 shrink-0">
                   {!isActive && (
                     <button
-                      onClick={() => { if (window.confirm('Delete this workout?')) deleteWorkout(session.id); }}
+                      onClick={() => setDeleteTarget(session)}
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-red-500/40 hover:text-red-400 hover:bg-red-500/5 transition-all duration-200"
                     >
                       <Trash2 size={13} />
@@ -152,6 +154,16 @@ export default function Workouts() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete workout?"
+        message="This action cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => { await deleteWorkout(deleteTarget.id); setDeleteTarget(null); }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Plus, Dumbbell, ChevronRight, Loader2, Copy, Search, Globe, Lock, Play,
 import { useRoutineStore } from '../stores/routineStore';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { routinesApi } from '../lib/api';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Routines() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export default function Routines() {
   const [publicSearch, setPublicSearch] = useState('');
   const [cloning, setCloning] = useState(null);
   const [starting, setStarting] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     fetchRoutines();
@@ -157,7 +159,7 @@ export default function Routines() {
                       Start Workout
                     </button>
                     <button
-                      onClick={() => { if (window.confirm('Delete this routine?')) deleteRoutine(r.id); }}
+                      onClick={() => setDeleteTarget(r)}
                       className="w-9 h-9 rounded-xl flex items-center justify-center text-red-500/40 hover:text-red-400 hover:bg-red-500/5 transition-all duration-200 border"
                       style={{ borderColor: 'var(--border-default)' }}
                     >
@@ -230,6 +232,15 @@ export default function Routines() {
           )}
         </>
       )}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete routine?"
+        message={deleteTarget ? `"${deleteTarget.name}" will be permanently deleted.` : ''}
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => { await deleteRoutine(deleteTarget.id); setDeleteTarget(null); }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

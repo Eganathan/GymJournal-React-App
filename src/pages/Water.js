@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
+import { Settings2 } from 'lucide-react';
 import { useWaterStore } from '../stores/waterStore';
 import { waterApi } from '../lib/api';
 import BottomSheet from '../components/BottomSheet';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const QUICK_AMOUNTS = [150, 250, 350, 500];
+const GOAL_PRESETS = [1500, 2000, 2500, 3000, 3500, 4000];
 
 function ProgressRing({ current, goal, size = 220, strokeWidth = 10 }) {
   const radius = (size - strokeWidth) / 2;
@@ -15,27 +18,16 @@ function ProgressRing({ current, goal, size = 220, strokeWidth = 10 }) {
     <div className="relative inline-flex items-center justify-center">
       <svg width={size} height={size} className="transform -rotate-90">
         <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="var(--text-faint)"
-          strokeWidth={strokeWidth}
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none" stroke="var(--text-faint)" strokeWidth={strokeWidth}
         />
         <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="var(--chart-stroke)"
-          strokeWidth={strokeWidth}
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none" stroke="var(--chart-stroke)" strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          style={{
-            transition: 'stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-            filter: 'drop-shadow(0 0 8px rgba(128,128,128,0.15))',
-          }}
+          style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1)' }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -50,7 +42,7 @@ export default function Water() {
   const {
     entries, totalMl, goalMl, progressPercent,
     isLoading, error,
-    fetchToday, addEntry, deleteEntry, updateEntry,
+    fetchToday, addEntry, deleteEntry, updateEntry, setGoal,
   } = useWaterStore();
 
   const [showCustom, setShowCustom] = useState(false);
@@ -61,15 +53,25 @@ export default function Water() {
   const [adding, setAdding] = useState(false);
   const [weekHistory, setWeekHistory] = useState([]);
 
+  // Goal setter
+  const [showGoalSheet, setShowGoalSheet] = useState(false);
+  const [goalInput, setGoalInput] = useState('');
+  const [goalSaving, setGoalSaving] = useState(false);
+
+  // Confirm dialog
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
   useEffect(() => {
     fetchToday();
-    // Fetch last 7 days for history chart
     const end = new Date();
     const start = new Date();
     start.setDate(start.getDate() - 6);
     const fmt = (d) => d.toISOString().split('T')[0];
     waterApi.getHistory(fmt(start), fmt(end))
-      .then((data) => setWeekHistory(Array.isArray(data) ? data : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setWeekHistory([...list].reverse());
+      })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -91,12 +93,6 @@ export default function Water() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Delete this entry?')) {
-      await deleteEntry(id);
-    }
-  };
-
   const openEdit = (entry) => {
     setEditingEntry(entry);
     setEditAmount(String(entry.amountMl));
@@ -112,11 +108,36 @@ export default function Water() {
     }
   };
 
+  const handleGoalSave = async () => {
+    const val = parseInt(goalInput);
+    if (!val || val < 100) return;
+    setGoalSaving(true);
+    await setGoal(val);
+    setShowGoalSheet(false);
+    setGoalInput('');
+    setGoalSaving(false);
+  };
+
+  const openGoalSheet = () => {
+    setGoalInput(String(goalMl));
+    setShowGoalSheet(true);
+  };
+
   return (
     <div className="page">
-      {/* Progress Ring */}
+      {/* Progress Ring + goal button */}
       <div className="flex flex-col items-center pt-8 pb-6 animate-fade-in">
-        <ProgressRing current={totalMl} goal={goalMl} />
+        <div className="relative">
+          <ProgressRing current={totalMl} goal={goalMl} />
+          <button
+            onClick={openGoalSheet}
+            className="absolute bottom-0 right-0 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200"
+            style={{ backgroundColor: 'var(--bg-raised)', border: '1px solid var(--border-default)' }}
+            title="Set daily goal"
+          >
+            <Settings2 size={15} style={{ color: 'var(--text-muted)' }} />
+          </button>
+        </div>
         <h2 className="text-xl font-bold mt-6">Today's Hydration</h2>
         <p className="mt-1" style={{ color: 'var(--text-muted)' }}>{progressPercent}% of daily goal</p>
       </div>
@@ -158,9 +179,10 @@ export default function Water() {
         <div className="card mb-8 animate-fade-in" style={{ animationDelay: '140ms' }}>
           <p className="label mb-4">Last 7 Days</p>
           <div className="flex items-end gap-1.5 h-20">
-            {weekHistory.map((day, i) => {
-              const pct = Math.min((day.totalMl / (day.goalMl || 2500)) * 100, 100);
-              const isToday = i === weekHistory.length - 1;
+            {weekHistory.map((day) => {
+              const pct = Math.min((day.totalMl / (day.goalMl || goalMl)) * 100, 100);
+              const todayStr = new Date().toISOString().split('T')[0];
+              const isToday = day.date === todayStr;
               const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString([], { weekday: 'narrow' });
               return (
                 <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
@@ -230,7 +252,7 @@ export default function Water() {
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDelete(entry.id)}
+                      onClick={() => setDeleteTarget(entry)}
                       className="text-xs text-red-500/60 hover:text-red-400 px-2 py-1 rounded-lg hover:bg-red-500/5 transition-all duration-200"
                     >
                       Delete
@@ -243,19 +265,17 @@ export default function Water() {
         )}
       </div>
 
+      {/* ── Sheets & Dialogs ── */}
+
       {/* Custom Amount Sheet */}
       <BottomSheet open={showCustom} onClose={() => setShowCustom(false)} title="Custom Amount">
         <div className="space-y-5">
           <div>
             <label className="label block mb-2">Amount (ml)</label>
             <input
-              type="number"
-              min="1"
-              value={customAmount}
+              type="number" min="1" value={customAmount}
               onChange={(e) => setCustomAmount(e.target.value)}
-              placeholder="e.g. 400"
-              className="w-full"
-              autoFocus
+              placeholder="e.g. 400" className="w-full" autoFocus
             />
           </div>
           <button
@@ -274,22 +294,17 @@ export default function Water() {
           <div>
             <label className="label block mb-2">Amount (ml)</label>
             <input
-              type="number"
-              min="1"
-              value={editAmount}
+              type="number" min="1" value={editAmount}
               onChange={(e) => setEditAmount(e.target.value)}
-              className="w-full"
-              autoFocus
+              className="w-full" autoFocus
             />
           </div>
           <div>
             <label className="label block mb-2">Notes</label>
             <input
-              type="text"
-              value={editNotes}
+              type="text" value={editNotes}
               onChange={(e) => setEditNotes(e.target.value)}
-              placeholder="Optional note"
-              className="w-full"
+              placeholder="Optional note" className="w-full"
             />
           </div>
           <button
@@ -301,6 +316,69 @@ export default function Water() {
           </button>
         </div>
       </BottomSheet>
+
+      {/* Set Daily Goal Sheet */}
+      <BottomSheet open={showGoalSheet} onClose={() => setShowGoalSheet(false)} title="Daily Water Goal">
+        <div className="space-y-5">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Set how much water you aim to drink each day. The ring and chart will update immediately.
+          </p>
+
+          {/* Preset chips */}
+          <div>
+            <label className="label block mb-3">Quick select</label>
+            <div className="grid grid-cols-3 gap-2">
+              {GOAL_PRESETS.map((ml) => (
+                <button
+                  key={ml}
+                  onClick={() => setGoalInput(String(ml))}
+                  className="py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border"
+                  style={goalInput === String(ml)
+                    ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+                    : { backgroundColor: 'transparent', color: 'var(--text-secondary)', borderColor: 'var(--border-default)' }
+                  }
+                >
+                  {ml >= 1000 ? `${ml / 1000}L` : `${ml} ml`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Manual input */}
+          <div>
+            <label className="label block mb-2">Or enter a custom amount (ml)</label>
+            <input
+              type="number" min="100" max="10000"
+              value={goalInput}
+              onChange={(e) => setGoalInput(e.target.value)}
+              placeholder="e.g. 2500"
+              className="w-full"
+            />
+          </div>
+
+          <button
+            onClick={handleGoalSave}
+            disabled={!goalInput || parseInt(goalInput) < 100 || goalSaving}
+            className="btn-primary w-full disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {goalSaving ? 'Saving...' : `Set goal to ${goalInput ? `${goalInput} ml` : '...'}`}
+          </button>
+        </div>
+      </BottomSheet>
+
+      {/* Delete Confirm */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete entry?"
+        message={deleteTarget ? `Remove ${deleteTarget.amountMl} ml entry?` : ''}
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => {
+          if (deleteTarget) await deleteEntry(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

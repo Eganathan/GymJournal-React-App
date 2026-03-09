@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Plus, Check, Loader2 } from 'lucide-react';
 import { useRoutineStore } from '../stores/routineStore';
 import { exercisesApi } from '../lib/api';
+import { getCache, setCache } from '../lib/cache';
 import BottomSheet from '../components/BottomSheet';
 
 export default function AddExercise() {
@@ -37,10 +38,21 @@ export default function AddExercise() {
   );
 
   useEffect(() => {
+    const cachedCats = getCache('exercise-categories');
+    const cachedEquip = getCache('exercise-equipment');
+    if (cachedCats && cachedEquip) {
+      setCategories(cachedCats);
+      setEquipment(cachedEquip);
+      return;
+    }
     Promise.all([exercisesApi.getCategories(), exercisesApi.getEquipment()])
       .then(([cats, equip]) => {
-        setCategories(Array.isArray(cats) ? cats : []);
-        setEquipment(Array.isArray(equip) ? equip : []);
+        const c = Array.isArray(cats) ? cats : [];
+        const e = Array.isArray(equip) ? equip : [];
+        setCategories(c);
+        setEquipment(e);
+        setCache('exercise-categories', c, 30 * 60 * 1000); // 30 min — rarely changes
+        setCache('exercise-equipment', e, 30 * 60 * 1000);
       })
       .catch(() => {});
   }, []);

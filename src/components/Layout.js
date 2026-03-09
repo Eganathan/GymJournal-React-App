@@ -37,7 +37,15 @@ export default function Layout() {
         <div className="flex items-center justify-between h-14 px-5 lg:px-8 max-w-screen-xl mx-auto">
           <span className="text-lg font-bold tracking-tight">GymJournal</span>
           <div className="flex items-center gap-3">
+            {/* Name visible on sm+; initial avatar on mobile */}
             <span className="text-sm hidden sm:block" style={{ color: 'var(--text-muted)' }}>{displayName}</span>
+            <div
+              className="sm:hidden w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+              style={{ backgroundColor: 'var(--bg-raised)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
+              title={displayName}
+            >
+              {displayName.charAt(0).toUpperCase()}
+            </div>
             <button
               onClick={() => setDarkMode(!darkMode)}
               className="w-9 h-9 rounded-xl flex items-center justify-center hover:opacity-80 transition-all duration-200"
@@ -100,7 +108,14 @@ export default function Layout() {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 backdrop-blur-md safe-area-pb z-50" style={{ backgroundColor: 'var(--bg-nav)', borderTop: '1px solid var(--border-subtle)' }}>
+      <nav
+        className="lg:hidden fixed bottom-0 left-0 right-0 backdrop-blur-md z-50"
+        style={{
+          backgroundColor: 'var(--bg-nav)',
+          borderTop: '1px solid var(--border-subtle)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
         <div className="flex justify-around items-center h-16 max-w-lg mx-auto">
           {tabs.map(({ to, icon: Icon, label }) => (
             <NavLink

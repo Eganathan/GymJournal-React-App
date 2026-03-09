@@ -5,6 +5,7 @@ import { useMetricsStore } from '../stores/metricsStore';
 import { METRIC_TYPES, METRIC_GROUPS, DEFAULT_GROUPS, ADVANCED_GROUPS } from '../lib/constants';
 import { getBMIStatus, getMedicalStatus } from '../lib/bmi';
 import MetricCard from '../components/MetricCard';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const INSIGHT_COLORS = {
   OK: 'text-green-400 border-green-500/20',
@@ -30,6 +31,7 @@ export default function Metrics() {
   const fetchHistory = useMetricsStore((s) => s.fetchHistory);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [deleteMetricTarget, setDeleteMetricTarget] = useState(null);
 
   useEffect(() => {
     fetchSnapshot();
@@ -227,11 +229,7 @@ export default function Metrics() {
                           unit={def.unit}
                         />
                         <button
-                          onClick={async () => {
-                            if (window.confirm(`Delete custom metric "${def.label}"?`)) {
-                              await deleteCustomDef(def.key);
-                            }
-                          }}
+                          onClick={() => setDeleteMetricTarget(def)}
                           className="absolute top-2 right-2 p-1.5 rounded-lg text-red-500/40 hover:text-red-400 hover:bg-red-500/5 transition-all duration-200"
                           title="Delete metric"
                         >
@@ -246,6 +244,16 @@ export default function Metrics() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteMetricTarget}
+        title={`Delete "${deleteMetricTarget?.label}"?`}
+        message="All logged entries for this metric will remain but the metric definition will be removed."
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => { await deleteCustomDef(deleteMetricTarget.key); setDeleteMetricTarget(null); }}
+        onCancel={() => setDeleteMetricTarget(null)}
+      />
     </div>
   );
 }

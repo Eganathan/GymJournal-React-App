@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2 } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { exercisesApi, workoutsApi } from '../lib/api';
+import { getCache, setCache } from '../lib/cache';
 import BottomSheet from '../components/BottomSheet';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 function formatElapsed(seconds) {
   const h = Math.floor(seconds / 3600);
@@ -434,6 +436,7 @@ export default function WorkoutActive() {
   const nameInputRef = useRef(null);
 
   // Add exercise sheet
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [exSearch, setExSearch] = useState('');
   const [exResults, setExResults] = useState([]);
@@ -466,13 +469,19 @@ export default function WorkoutActive() {
     }
   }, [activeSession?.name, editingName]);
 
-  // Fetch categories once when add-exercise sheet opens
+  // Fetch categories once when add-exercise sheet opens (cached 30 min)
   useEffect(() => {
-    if (!showAddExercise || exCategories.length > 0) return;
+    if (!showAddExercise) return;
+    const cached = getCache('exercise-categories');
+    if (cached) { setExCategories(cached); return; }
     exercisesApi.getCategories()
-      .then((data) => setExCategories(Array.isArray(data) ? data : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setExCategories(list);
+        setCache('exercise-categories', list, 30 * 60 * 1000);
+      })
       .catch(() => {});
-  }, [showAddExercise, exCategories.length]);
+  }, [showAddExercise]);
 
   // Exercise search (with category filter + pagination)
   const searchExercises = useCallback(async (q, categoryId, pageNum = 1, append = false) => {
@@ -529,8 +538,8 @@ export default function WorkoutActive() {
     setExSearch('');
   };
 
-  const handleFinish = async () => {
-    if (!window.confirm('Finish this workout?')) return;
+  const doFinish = async () => {
+    setShowFinishConfirm(false);
     setFinishing(true);
     setFinishError(null);
     const result = await completeWorkout(id);
@@ -611,7 +620,7 @@ export default function WorkoutActive() {
         </div>
         {!isCompleted && (
           <button
-            onClick={handleFinish}
+            onClick={() => setShowFinishConfirm(true)}
             disabled={finishing}
             className="btn-primary !py-2.5 !px-5 text-sm flex items-center gap-2 shrink-0"
           >
@@ -667,6 +676,16 @@ export default function WorkoutActive() {
           <Plus size={16} /> Add Exercise
         </button>
       )}
+
+      {/* Finish Workout Confirm */}
+      <ConfirmDialog
+        open={showFinishConfirm}
+        title="Finish workout?"
+        message="Mark this session as complete and see your summary."
+        confirmLabel="Finish"
+        onConfirm={doFinish}
+        onCancel={() => setShowFinishConfirm(false)}
+      />
 
       {/* Add Exercise Bottom Sheet */}
       <BottomSheet

@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Dumbbell, Loader2, Save, Play, Timer, Trash2 } from 'l
 import { useRoutineStore } from '../stores/routineStore';
 import { useWorkoutStore } from '../stores/workoutStore';
 import ExerciseCard from '../components/ExerciseCard';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function RoutineDetail() {
   const { id } = useParams();
@@ -22,6 +23,7 @@ export default function RoutineDetail() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState(null); // { index, label }
 
   useEffect(() => {
     fetchRoutine(id);
@@ -130,12 +132,7 @@ export default function RoutineDetail() {
                       </div>
                     </div>
                     <button
-                      onClick={() => {
-                        if (window.confirm('Remove rest block?')) {
-                          removeExerciseLocal(id, i);
-                          setDirty(true);
-                        }
-                      }}
+                      onClick={() => setRemoveTarget({ index: i, label: 'Rest block' })}
                       className="text-xs text-red-500/70 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/5 transition-all duration-200"
                     >
                       <Trash2 size={14} />
@@ -153,12 +150,7 @@ export default function RoutineDetail() {
                       </p>
                     </div>
                     <button
-                      onClick={() => {
-                        if (window.confirm(`Remove ${item.exerciseName}?`)) {
-                          removeExerciseLocal(id, i);
-                          setDirty(true);
-                        }
-                      }}
+                      onClick={() => setRemoveTarget({ index: i, label: item.exerciseName })}
                       className="text-xs text-red-500/70 hover:text-red-400 p-2 rounded-lg hover:bg-red-500/5 transition-all duration-200"
                     >
                       <Trash2 size={14} />
@@ -189,12 +181,7 @@ export default function RoutineDetail() {
                     updateExerciseLocal(id, i, mapped);
                     setDirty(true);
                   }}
-                  onRemove={() => {
-                    if (window.confirm(`Remove ${item.exerciseName}?`)) {
-                      removeExerciseLocal(id, i);
-                      setDirty(true);
-                    }
-                  }}
+                  onRemove={() => setRemoveTarget({ index: i, label: item.exerciseName })}
                   onMoveUp={() => {
                     if (i > 0) {
                       reorderExercisesLocal(id, i, i - 1);
@@ -239,6 +226,20 @@ export default function RoutineDetail() {
           <Timer size={16} /> Add Rest
         </button>
       </div>
+
+      <ConfirmDialog
+        open={!!removeTarget}
+        title={`Remove "${removeTarget?.label}"?`}
+        message="It will be removed from this routine."
+        confirmLabel="Remove"
+        danger
+        onConfirm={() => {
+          removeExerciseLocal(id, removeTarget.index);
+          setDirty(true);
+          setRemoveTarget(null);
+        }}
+        onCancel={() => setRemoveTarget(null)}
+      />
     </div>
   );
 }

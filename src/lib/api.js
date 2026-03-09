@@ -80,6 +80,16 @@ export const waterApi = {
   /** Delete an entry */
   delete: (id) =>
     request(`/api/v1/water/${id}`, { method: 'DELETE' }),
+
+  /** Get the stored daily goal */
+  getGoal: () => request('/api/v1/water/goal'),
+
+  /** Set / update the daily goal */
+  setGoal: (goalMl) =>
+    request('/api/v1/water/goal', {
+      method: 'PUT',
+      body: JSON.stringify({ goalMl }),
+    }),
 };
 
 // ── Exercises ──────────────────────────────────────────────
