@@ -22,6 +22,17 @@ export default function RoutineNew() {
   const navigate = useNavigate();
   const createRoutine = useRoutineStore((s) => s.createRoutine);
 
+  // Step 1 — Constants
+  const DEFAULT_REPS = 10;
+  const DEFAULT_WEIGHT = null;
+  // eslint-disable-next-line no-unused-vars
+  const REST_DEFAULT_S = 120;
+  const DEFAULT_SET_ROWS = () => [
+    { reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
+    { reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
+    { reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
+  ];
+
   // Routine fields
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -109,6 +120,7 @@ export default function RoutineNew() {
     return () => observer.disconnect();
   }, [exHasMore, exLoadingMore, exPage, fetchExercises]);
 
+  // Step 2 — handleAddExercise using setRows
   const handleAddExercise = (exercise) => {
     setAddingExId(exercise.id);
     setItems((prev) => [
@@ -117,10 +129,7 @@ export default function RoutineNew() {
         type: 'EXERCISE',
         exerciseId: exercise.id,
         exerciseName: exercise.name,
-        sets: 3,
-        repsPerSet: 10,
-        weightKg: null,
-        restAfterSeconds: 90,
+        setRows: DEFAULT_SET_ROWS(),
         notes: '',
         order: prev.length + 1,
       },
@@ -162,20 +171,73 @@ export default function RoutineNew() {
     });
   };
 
-  const handleUpdateExercise = (index, field, value) => {
-    setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
+  // Step 4 — Per-set row handlers
+  const handleSetRowChange = (itemIdx, rowIdx, field, rawValue) => {
+    const value = field === 'reps'
+      ? (parseInt(rawValue) || DEFAULT_REPS)
+      : (rawValue === '' ? DEFAULT_WEIGHT : rawValue);
+
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIdx) return item;
+        const rows = item.setRows.map((row, r) => {
+          if (r === rowIdx) return { ...row, [field]: value };
+          if (rowIdx === 0 && r > 0) {
+            const stillDefault =
+              field === 'reps'
+                ? row.reps === DEFAULT_REPS
+                : row.weightKg === DEFAULT_WEIGHT;
+            if (stillDefault) return { ...row, [field]: value };
+          }
+          return row;
+        });
+        return { ...item, setRows: rows };
+      })
+    );
   };
 
+  const handleAddSetRow = (itemIdx) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIdx) return item;
+        const last = item.setRows[item.setRows.length - 1] || { reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT };
+        return { ...item, setRows: [...item.setRows, { ...last }] };
+      })
+    );
+  };
+
+  const handleRemoveSetRow = (itemIdx, rowIdx) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIdx) return item;
+        if (item.setRows.length <= 1) return item;
+        return { ...item, setRows: item.setRows.filter((_, r) => r !== rowIdx) };
+      })
+    );
+  };
+
+  // Step 3 — handleSave deriving flat fields from setRows
   const handleSave = async () => {
     setError('');
     if (!name.trim()) { setError('Routine name is required'); return; }
     if (items.length === 0) { setError('Add at least one exercise'); return; }
 
+    const normalizedItems = items.map((item) => {
+      if (item.type !== 'EXERCISE') return item;
+      const rows = item.setRows || [];
+      return {
+        ...item,
+        sets: rows.length || 1,
+        repsPerSet: rows[0]?.reps ?? DEFAULT_REPS,
+        weightKg: rows[0]?.weightKg ?? DEFAULT_WEIGHT,
+      };
+    });
+
     setSaving(true);
     const id = await createRoutine({
       name: name.trim(),
       description: description.trim(),
-      items,
+      items: normalizedItems,
       isPublic,
     });
     if (id) {
@@ -283,31 +345,57 @@ export default function RoutineNew() {
                         <Trash2 size={14} />
                       </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="label block mb-1 text-[10px]">Sets</label>
-                        <input
-                          type="number" min="1" value={item.sets}
-                          onChange={(e) => handleUpdateExercise(i, 'sets', parseInt(e.target.value) || 1)}
-                          className="w-full text-center !py-2 text-sm"
-                        />
+
+                    {/* Step 5 — Per-set rows */}
+                    <div className="mt-3">
+                      {/* Column headers */}
+                      <div className="grid grid-cols-[28px_1fr_1fr_28px] gap-x-2 mb-1 px-0.5">
+                        <span className="text-[10px] uppercase tracking-wider font-medium text-center" style={{ color: 'var(--text-muted)' }}>SET</span>
+                        <span className="text-[10px] uppercase tracking-wider font-medium text-center" style={{ color: 'var(--text-muted)' }}>REPS</span>
+                        <span className="text-[10px] uppercase tracking-wider font-medium text-center" style={{ color: 'var(--text-muted)' }}>KG</span>
+                        <span />
                       </div>
-                      <div>
-                        <label className="label block mb-1 text-[10px]">Reps</label>
-                        <input
-                          type="number" min="1" value={item.repsPerSet}
-                          onChange={(e) => handleUpdateExercise(i, 'repsPerSet', parseInt(e.target.value) || 1)}
-                          className="w-full text-center !py-2 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="label block mb-1 text-[10px]">Weight (kg)</label>
-                        <input
-                          type="number" min="0" step="0.5" value={item.weightKg || ''}
-                          onChange={(e) => handleUpdateExercise(i, 'weightKg', e.target.value ? String(parseFloat(e.target.value)) : null)}
-                          className="w-full text-center !py-2 text-sm" placeholder="--"
-                        />
-                      </div>
+
+                      {item.setRows.map((row, rowIdx) => (
+                        <div key={rowIdx} className="grid grid-cols-[28px_1fr_1fr_28px] gap-x-2 mb-1.5 items-center">
+                          <span className="text-xs text-center font-medium tabular-nums" style={{ color: 'var(--text-dim)' }}>
+                            {rowIdx + 1}
+                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={row.reps}
+                            onChange={(e) => handleSetRowChange(i, rowIdx, 'reps', e.target.value)}
+                            className="w-full text-center !py-1.5 text-sm"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={row.weightKg ?? ''}
+                            onChange={(e) => handleSetRowChange(i, rowIdx, 'weightKg', e.target.value)}
+                            placeholder="--"
+                            className="w-full text-center !py-1.5 text-sm"
+                          />
+                          <button
+                            onClick={() => handleRemoveSetRow(i, rowIdx)}
+                            disabled={item.setRows.length <= 1}
+                            className="flex items-center justify-center disabled:opacity-20 transition-all duration-200"
+                            style={{ color: 'var(--text-dim)' }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Add Set */}
+                      <button
+                        onClick={() => handleAddSetRow(i)}
+                        className="mt-1 flex items-center gap-1 text-xs transition-all duration-200"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        <Plus size={11} /> Add Set
+                      </button>
                     </div>
                   </div>
                 )}
