@@ -1,9 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Plus, Search, Timer, Trash2, ChevronUp, ChevronDown, Globe, Lock } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Search, Timer, Trash2, ChevronUp, ChevronDown, Globe, Lock, Check } from 'lucide-react';
 import { useRoutineStore } from '../stores/routineStore';
 import { exercisesApi } from '../lib/api';
 import BottomSheet from '../components/BottomSheet';
+import { getCachedCategories, setCache } from '../lib/cache';
+
+function ExerciseItemShimmer() {
+  return (
+    <div className="card !py-3 flex items-center justify-between animate-pulse">
+      <div className="min-w-0 flex-1">
+        <div className="h-3.5 rounded-full mb-2" style={{ backgroundColor: 'var(--bg-raised)', width: '58%' }} />
+        <div className="h-2.5 rounded-full" style={{ backgroundColor: 'var(--bg-raised)', width: '32%' }} />
+      </div>
+      <div className="w-6 h-6 rounded-lg shrink-0 ml-3" style={{ backgroundColor: 'var(--bg-raised)' }} />
+    </div>
+  );
+}
 
 export default function RoutineNew() {
   const navigate = useNavigate();
@@ -22,43 +35,79 @@ export default function RoutineNew() {
   const [exSearch, setExSearch] = useState('');
   const [exResults, setExResults] = useState([]);
   const [exLoading, setExLoading] = useState(false);
+  const [exLoadingMore, setExLoadingMore] = useState(false);
+  const [exPage, setExPage] = useState(1);
+  const [exHasMore, setExHasMore] = useState(false);
   const [categories, setCategories] = useState([]);
   const [catFilter, setCatFilter] = useState('');
   const [addingExId, setAddingExId] = useState(null);
+  const exSentinelRef = useRef(null);
 
   // Rest duration sheet
   const [showRestSheet, setShowRestSheet] = useState(false);
   const [restDuration, setRestDuration] = useState(90);
 
-  // Load categories once
+  // Load categories (with cache)
   useEffect(() => {
+    const cached = getCachedCategories();
+    if (cached) { setCategories(cached); return; }
     exercisesApi.getCategories()
-      .then((cats) => setCategories(Array.isArray(cats) ? cats : []))
+      .then((cats) => {
+        const c = Array.isArray(cats) ? cats : [];
+        setCategories(c);
+        setCache('exercise-categories', c, 30 * 60 * 1000);
+      })
       .catch(() => {});
   }, []);
 
-  // Exercise search
-  const fetchExercises = useCallback(async () => {
-    setExLoading(true);
+  // Exercise search with pagination
+  const fetchExercises = useCallback(async (pageNum = 1, append = false) => {
+    if (pageNum === 1) setExLoading(true);
+    else setExLoadingMore(true);
     try {
-      const data = await exercisesApi.list({
+      const { items, meta } = await exercisesApi.list({
         search: exSearch || undefined,
         categoryId: catFilter || undefined,
+        page: pageNum,
         pageSize: 20,
       });
-      setExResults(Array.isArray(data) ? data : data?.exercises || []);
+      const total = parseInt(meta.total, 10);
+      const more = !isNaN(total)
+        ? meta.page * meta.pageSize < total
+        : items.length >= 20;
+      if (append) setExResults((prev) => [...prev, ...items]);
+      else setExResults(items);
+      setExHasMore(more);
+      setExPage(pageNum);
     } catch {
-      setExResults([]);
+      if (!append) setExResults([]);
     } finally {
       setExLoading(false);
+      setExLoadingMore(false);
     }
   }, [exSearch, catFilter]);
 
   useEffect(() => {
     if (!showExSheet) return;
-    const timer = setTimeout(fetchExercises, 300);
+    const timer = setTimeout(() => fetchExercises(1), 300);
     return () => clearTimeout(timer);
   }, [fetchExercises, showExSheet]);
+
+  // Infinite scroll sentinel — full-screen panel uses viewport as root
+  useEffect(() => {
+    const el = exSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && exHasMore && !exLoadingMore) {
+          fetchExercises(exPage + 1, true);
+        }
+      },
+      { rootMargin: '100px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [exHasMore, exLoadingMore, exPage, fetchExercises]);
 
   const handleAddExercise = (exercise) => {
     setAddingExId(exercise.id);
@@ -270,7 +319,7 @@ export default function RoutineNew() {
         {/* Add buttons */}
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => { setShowExSheet(true); fetchExercises(); }}
+            onClick={() => setShowExSheet(true)}
             className="btn-secondary flex items-center justify-center gap-2 text-sm"
           >
             <Plus size={14} /> Add Exercise
@@ -321,79 +370,116 @@ export default function RoutineNew() {
         Save Routine
       </button>
 
-      {/* Add Exercise Bottom Sheet */}
-      <BottomSheet open={showExSheet} onClose={() => { setShowExSheet(false); setExSearch(''); setCatFilter(''); }} title="Add Exercise">
-        <div className="relative mb-3">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
-          <input
-            type="text" value={exSearch} onChange={(e) => setExSearch(e.target.value)}
-            placeholder="Search exercises..." className="w-full !pl-11" autoFocus
-          />
-        </div>
-
-        {/* Category pills */}
-        <div className="flex gap-2 overflow-x-auto pb-3 mb-3 scrollbar-hide">
-          <button
-            onClick={() => setCatFilter('')}
-            className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200"
-            style={!catFilter
-              ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
-              : { borderColor: 'var(--border-default)', color: 'var(--text-muted)' }
-            }
+      {/* Add Exercise — full-screen panel so IntersectionObserver works with root: null */}
+      {showExSheet && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto animate-fade-in-fast"
+          style={{ backgroundColor: 'var(--bg-base)' }}
+        >
+          {/* Sticky header + search + chips */}
+          <div
+            className="sticky top-0 z-10 px-5 pt-5 pb-4"
+            style={{ backgroundColor: 'var(--bg-base)', borderBottom: '1px solid var(--border-subtle)' }}
           >
-            All
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setCatFilter(catFilter === cat.id ? '' : cat.id)}
-              className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200"
-              style={catFilter === cat.id
-                ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
-                : { borderColor: 'var(--border-default)', color: 'var(--text-muted)' }
-              }
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
+            <div className="flex items-center gap-3 mb-4">
+              <button
+                onClick={() => { setShowExSheet(false); setExSearch(''); setCatFilter(''); setExResults([]); }}
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200"
+                style={{ backgroundColor: 'var(--bg-raised)', border: '1px solid var(--border-default)' }}
+              >
+                <ArrowLeft size={16} />
+              </button>
+              <h2 className="text-xl font-bold">Add Exercise</h2>
+            </div>
 
-        {exLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 size={20} className="animate-spin" style={{ color: 'var(--text-dim)' }} />
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-72 overflow-y-auto">
-            {exResults.map((ex) => {
-              const alreadyAdded = exerciseNames.has(ex.name);
-              return (
+            <div className="relative mb-3">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
+              <input
+                type="text" value={exSearch} onChange={(e) => setExSearch(e.target.value)}
+                placeholder="Search exercises..." className="w-full !pl-11" autoFocus
+              />
+            </div>
+
+            {categories.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                 <button
-                  key={ex.id}
-                  onClick={() => !alreadyAdded && handleAddExercise(ex)}
-                  disabled={alreadyAdded || addingExId === ex.id}
-                  className="w-full card !py-3 flex items-center justify-between text-left"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm">{ex.name}</p>
-                    <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-                      {ex.primaryMuscle || ex.muscleGroup || ''}
-                      {ex.equipment && <> · {ex.equipment}</>}
-                    </p>
-                  </div>
-                  {alreadyAdded ? (
-                    <span className="text-xs shrink-0" style={{ color: 'var(--text-dim)' }}>Added</span>
-                  ) : (
-                    <Plus size={14} className="shrink-0" style={{ color: 'var(--text-muted)' }} />
-                  )}
-                </button>
-              );
-            })}
-            {!exLoading && exResults.length === 0 && exSearch && (
-              <p className="text-center text-sm py-6" style={{ color: 'var(--text-dim)' }}>No exercises found</p>
+                  onClick={() => setCatFilter('')}
+                  className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all duration-200"
+                  style={!catFilter
+                    ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+                    : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                  }
+                >All</button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setCatFilter(catFilter === cat.id ? '' : cat.id)}
+                    className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all duration-200"
+                    style={catFilter === cat.id
+                      ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+                      : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                    }
+                  >
+                    {cat.shortName || cat.displayName || cat.name}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
-        )}
-      </BottomSheet>
+
+          {/* Exercise list */}
+          <div className="px-5 pt-3 pb-10">
+            {exLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 8 }, (_, i) => <ExerciseItemShimmer key={i} />)}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {exResults.map((ex) => {
+                  const alreadyAdded = exerciseNames.has(ex.name);
+                  return (
+                    <button
+                      key={ex.id}
+                      onClick={() => !alreadyAdded && handleAddExercise(ex)}
+                      disabled={alreadyAdded || addingExId === ex.id}
+                      className="w-full card !py-3 flex items-center justify-between text-left"
+                      style={alreadyAdded ? { opacity: 0.5 } : {}}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{ex.name}</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
+                          {ex.primaryMuscle || ex.muscleGroup || ''}
+                          {ex.equipment && <> · {ex.equipment}</>}
+                        </p>
+                      </div>
+                      {alreadyAdded ? (
+                        <Check size={14} className="shrink-0 ml-3 text-green-500" />
+                      ) : addingExId === ex.id ? (
+                        <Loader2 size={14} className="animate-spin shrink-0 ml-3" style={{ color: 'var(--text-dim)' }} />
+                      ) : (
+                        <Plus size={14} className="shrink-0 ml-3" style={{ color: 'var(--text-muted)' }} />
+                      )}
+                    </button>
+                  );
+                })}
+                {exResults.length === 0 && (
+                  <p className="text-center text-sm py-10" style={{ color: 'var(--text-dim)' }}>
+                    {exSearch || catFilter ? 'No exercises found' : 'Select a category or search'}
+                  </p>
+                )}
+                {/* Infinite scroll sentinel */}
+                <div ref={exSentinelRef} className="flex items-center justify-center py-4">
+                  {exLoadingMore && (
+                    <div className="space-y-2 w-full">
+                      {Array.from({ length: 3 }, (_, i) => <ExerciseItemShimmer key={i} />)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Add Rest Bottom Sheet */}
       <BottomSheet open={showRestSheet} onClose={() => setShowRestSheet(false)} title="Add Rest Block">

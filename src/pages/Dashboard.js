@@ -6,6 +6,7 @@ import { useWorkoutStore } from '../stores/workoutStore';
 import { useMetricsStore } from '../stores/metricsStore';
 import { useWaterStore } from '../stores/waterStore';
 import { getBMIStatus } from '../lib/bmi';
+import { formatRelativeDateTime, formatDuration } from '../lib/dateUtils';
 
 function Skeleton({ className = '' }) {
   return <div className={`skeleton ${className}`} />;
@@ -17,17 +18,6 @@ const INSIGHT_DOT = {
   WARNING: 'bg-orange-400',
   DANGER: 'bg-red-400',
 };
-
-function formatDuration(startedAt, completedAt) {
-  if (!startedAt) return '';
-  const start = new Date(startedAt).getTime();
-  const end = completedAt ? new Date(completedAt).getTime() : Date.now();
-  const mins = Math.floor((end - start) / 60000);
-  if (mins < 60) return `${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${h}h ${m}m`;
-}
 
 export default function Dashboard() {
   const routines = useRoutineStore((s) => s.routines);
@@ -262,7 +252,7 @@ export default function Dashboard() {
                 <div className="min-w-0">
                   <p className="font-semibold truncate">{session.name || 'Workout'}</p>
                   <p className="text-xs mt-0.5 flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                    <span>{new Date(session.startedAt || session.createdAt).toLocaleDateString()}</span>
+                    <span>{formatRelativeDateTime(session.startedAt || session.createdAt)}</span>
                     {session.startedAt && (
                       <>
                         <span style={{ color: 'var(--text-faint)' }}>&middot;</span>

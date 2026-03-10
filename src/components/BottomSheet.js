@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
-export default function BottomSheet({ open, onClose, title, children }) {
+export default function BottomSheet({ open, onClose, title, children, scrollRef }) {
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
@@ -24,7 +24,7 @@ export default function BottomSheet({ open, onClose, title, children }) {
         style={{
           backgroundColor: 'var(--bg-sheet)',
           borderTop: '1px solid var(--border-default)',
-          maxHeight: '88vh',
+          maxHeight: '80vh',
         }}
       >
         {/* Handle bar */}
@@ -46,8 +46,9 @@ export default function BottomSheet({ open, onClose, title, children }) {
 
         {/* Scrollable content with safe-area bottom padding */}
         <div
+          ref={scrollRef}
           className="overflow-y-auto px-5 flex-1"
-          style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+          style={{ paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))' }}
         >
           {children}
         </div>

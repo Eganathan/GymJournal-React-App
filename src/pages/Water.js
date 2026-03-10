@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Settings2 } from 'lucide-react';
+import { formatTime } from '../lib/dateUtils';
 import { useWaterStore } from '../stores/waterStore';
 import { waterApi } from '../lib/api';
 import BottomSheet from '../components/BottomSheet';
@@ -234,9 +235,7 @@ export default function Water() {
         ) : (
           <div className="space-y-3 stagger">
             {entries.map((entry) => {
-              const time = entry.logDateTime
-                ? new Date(entry.logDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : '';
+              const time = formatTime(entry.logDateTime);
               return (
                 <div key={entry.id} className="card flex items-center gap-4 animate-fade-in">
                   <span className="text-sm w-16 shrink-0" style={{ color: 'var(--text-dim)' }}>{time}</span>

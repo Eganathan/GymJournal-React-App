@@ -26,3 +26,17 @@ export function setCache(key, data, ttlMs = 5 * 60 * 1000) {
 export function clearCache(key) {
   delete _store[key];
 }
+
+/**
+ * Read category cache only if items actually have display text.
+ * Guards against stale cache entries stored before data was seeded.
+ */
+export function getCachedCategories() {
+  const data = getCache('exercise-categories');
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const first = data[0];
+  if (first.shortName || first.displayName || first.name) return data;
+  // Cache has categories with no text — invalidate so we re-fetch
+  clearCache('exercise-categories');
+  return null;
+}

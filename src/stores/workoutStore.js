@@ -11,18 +11,50 @@ export const useWorkoutStore = create((set, get) => ({
   activeSession: null,
   isLoading: false,
   error: null,
+  hasMore: false,
   _lastFetchedList: 0,
   _lastFetchedSession: {}, // { [id]: timestamp }
+  _currentFilters: {},     // params used for the current sessions list
 
   fetchSessions: async (params = {}, force = false) => {
-    const { _lastFetchedList, sessions } = get();
-    if (!force && sessions.length > 0 && Date.now() - _lastFetchedList < SESSIONS_TTL) return;
+    const { _lastFetchedList, sessions, _currentFilters } = get();
+    const filtersChanged = JSON.stringify(params) !== JSON.stringify(_currentFilters);
+    if (!force && !filtersChanged && sessions.length > 0 && Date.now() - _lastFetchedList < SESSIONS_TTL) return;
 
     set({ isLoading: true, error: null });
     try {
-      const data = await workoutsApi.list(params);
+      const data = await workoutsApi.list({ ...params, page: 1 });
       const list = Array.isArray(data) ? data : data?.sessions || data?.workouts || [];
-      set({ sessions: list, _lastFetchedList: Date.now() });
+      const meta = Array.isArray(data) ? {} : (data?.meta || data?.pagination || {});
+      const pageSize = params.pageSize || 20;
+      const hasMore = meta.hasMore !== undefined
+        ? meta.hasMore
+        : (meta.total != null ? list.length < meta.total : list.length >= pageSize);
+      set({ sessions: list, _lastFetchedList: Date.now(), _currentFilters: params, hasMore });
+    } catch (err) {
+      set({ error: err.message });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  loadMoreSessions: async () => {
+    const { sessions, _currentFilters, hasMore, isLoading } = get();
+    if (!hasMore || isLoading) return;
+
+    const pageSize = _currentFilters.pageSize || 20;
+    const nextPage = Math.floor(sessions.length / pageSize) + 1;
+
+    set({ isLoading: true, error: null });
+    try {
+      const data = await workoutsApi.list({ ..._currentFilters, page: nextPage });
+      const list = Array.isArray(data) ? data : data?.sessions || data?.workouts || [];
+      const meta = Array.isArray(data) ? {} : (data?.meta || data?.pagination || {});
+      const newTotal = sessions.length + list.length;
+      const hasMore = meta.hasMore !== undefined
+        ? meta.hasMore
+        : (meta.total != null ? newTotal < meta.total : list.length >= pageSize);
+      set((s) => ({ sessions: [...s.sessions, ...list], hasMore }));
     } catch (err) {
       set({ error: err.message });
     } finally {

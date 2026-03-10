@@ -101,15 +101,33 @@ export const exercisesApi = {
   /** List equipment types */
   getEquipment: () => request('/api/v1/exercises/equipment'),
 
-  /** List exercises with optional filters */
-  list: (params = {}) => {
+  /** List exercises with optional filters — returns { items, meta } */
+  list: async (params = {}) => {
     const qs = new URLSearchParams();
+    qs.set('page', String(params.page ?? 1));
+    qs.set('pageSize', String(params.pageSize ?? 20));
     if (params.categoryId) qs.set('categoryId', params.categoryId);
     if (params.search) qs.set('search', params.search);
-    if (params.page) qs.set('page', params.page);
-    if (params.pageSize) qs.set('pageSize', params.pageSize);
-    const q = qs.toString();
-    return request(`/api/v1/exercises${q ? `?${q}` : ''}`);
+    const url = `${BASE_URL}/api/v1/exercises?${qs.toString()}`;
+    const res = await fetch(url, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(_currentUserId ? { 'X-Catalyst-Uid': _currentUserId } : {}),
+      },
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      const msg = json.error?.message || `Request failed (${res.status})`;
+      const err = new Error(msg);
+      err.code = json.error?.code || res.status;
+      throw err;
+    }
+    const items = Array.isArray(json.data)
+      ? json.data
+      : (json.data?.exercises || json.data?.items || json.data?.data || []);
+    const meta = json.meta || json.data?.meta || json.data?.pagination || {};
+    return { items, meta };
   },
 
   /** Get single exercise by ID */
@@ -285,10 +303,12 @@ export const workoutsApi = {
       body: JSON.stringify(body),
     }),
 
-  /** List workout sessions */
+  /** List workout sessions (paginated, filterable by status and date range) */
   list: (params = {}) => {
     const qs = new URLSearchParams();
     if (params.status) qs.set('status', params.status);
+    if (params.startDate) qs.set('startDate', params.startDate);
+    if (params.endDate) qs.set('endDate', params.endDate);
     if (params.page) qs.set('page', params.page);
     if (params.pageSize) qs.set('pageSize', params.pageSize);
     const q = qs.toString();
@@ -331,11 +351,37 @@ export const workoutsApi = {
   deleteSet: (sessionId, setId) =>
     request(`/api/v1/workouts/${sessionId}/sets/${setId}`, { method: 'DELETE' }),
 
-  /** Get exercise history */
-  getExerciseHistory: (exerciseId) =>
-    request(`/api/v1/exercises/${exerciseId}/history`),
+  /** Get exercise history (paginated) */
+  getExerciseHistory: (exerciseId, params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.page) qs.set('page', params.page);
+    if (params.pageSize) qs.set('pageSize', params.pageSize);
+    const q = qs.toString();
+    return request(`/api/v1/exercises/${exerciseId}/history${q ? `?${q}` : ''}`);
+  },
 
   /** Get personal bests for an exercise */
   getExercisePBs: (exerciseId) =>
     request(`/api/v1/exercises/${exerciseId}/pbs`),
+};
+
+// ── Gym Logs (Incidents) ────────────────────────────────────
+
+export const logsApi = {
+  /** Create a new log entry */
+  create: (body) =>
+    request('/api/v1/logs', { method: 'POST', body: JSON.stringify(body) }),
+
+  /** Get all entries for a specific date (YYYY-MM-DD) */
+  getByDate: (date) => request(`/api/v1/logs?date=${date}`),
+
+  /** Get the 50 most recent entries across all dates */
+  getRecent: () => request('/api/v1/logs/recent'),
+
+  /** Update title, description, or severity */
+  update: (id, updates) =>
+    request(`/api/v1/logs/${id}`, { method: 'PUT', body: JSON.stringify(updates) }),
+
+  /** Delete an entry */
+  delete: (id) => request(`/api/v1/logs/${id}`, { method: 'DELETE' }),
 };

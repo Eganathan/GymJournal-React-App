@@ -12,6 +12,7 @@ import WorkoutActive from './pages/WorkoutActive';
 import Metrics from './pages/Metrics';
 import MetricsLog from './pages/MetricsLog';
 import MetricHistory from './pages/MetricHistory';
+import Logs from './pages/Logs';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/metrics" element={<Metrics />} />
             <Route path="/metrics/log" element={<MetricsLog />} />
             <Route path="/metrics/:metricType" element={<MetricHistory />} />
+            <Route path="/logs" element={<Logs />} />
           </Route>
         </Routes>
       </AuthGuard>

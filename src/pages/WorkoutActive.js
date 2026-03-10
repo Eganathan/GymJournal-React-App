@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2 } from 'lucide-react';
+import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2, ArrowLeft } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { exercisesApi, workoutsApi } from '../lib/api';
-import { getCache, setCache } from '../lib/cache';
-import BottomSheet from '../components/BottomSheet';
+import { getCachedCategories, getCache, setCache } from '../lib/cache';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { formatRelativeDate } from '../lib/dateUtils';
 
 function formatElapsed(seconds) {
   const h = Math.floor(seconds / 3600);
@@ -118,24 +118,24 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
   const [addingSet, setAddingSet] = useState(false);
   const [, forceUpdate] = useState(0);
   const [showRest, setShowRest] = useState(false);
-  const [pb, setPb] = useState(null);
-  const [lastSession, setLastSession] = useState(null);
+  const [pbs, setPbs] = useState([]);       // all PBs per rep count
+  const [lastSets, setLastSets] = useState([]); // last 3 completed sets
 
   const sets = exercise.sets || [];
-  const restSeconds = exercise.restAfterSeconds || exercise.durationSeconds || 0;
+  const restSeconds = exercise.restAfterSeconds || exercise.durationSeconds || 90;
 
   useEffect(() => {
     if (!exercise.exerciseId) return;
     workoutsApi.getExercisePBs(exercise.exerciseId)
       .then((data) => {
-        const best = Array.isArray(data) ? data[0] : data?.maxWeight || data;
-        if (best) setPb(best);
+        const list = Array.isArray(data) ? data : [];
+        setPbs(list);
       })
       .catch(() => {});
-    workoutsApi.getExerciseHistory(exercise.exerciseId)
+    workoutsApi.getExerciseHistory(exercise.exerciseId, { pageSize: 3 })
       .then((data) => {
         const entries = Array.isArray(data) ? data : data?.entries || [];
-        if (entries.length > 0) setLastSession(entries[0]);
+        setLastSets(entries.slice(0, 3));
       })
       .catch(() => {});
   }, [exercise.exerciseId]);
@@ -170,27 +170,43 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0">
           <h3 className="font-semibold">{exercise.exerciseName}</h3>
-          {lastSession && (
+          {lastSets.length > 0 && (
             <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-dim)' }}>
-              Last: {lastSession.actualReps ?? lastSession.reps ?? '?'} × {lastSession.actualWeightKg ?? lastSession.weightKg ?? '?'}kg
-              {lastSession.completedAt && (
-                <span className="ml-1">· {new Date(lastSession.completedAt).toLocaleDateString()}</span>
+              Last:{' '}
+              {lastSets.map((s, i) => (
+                <span key={s.id || i}>
+                  {i > 0 && <span style={{ color: 'var(--text-faint)' }}> · </span>}
+                  {s.actualReps ?? '?'}×{s.actualWeightKg ?? '?'}kg
+                </span>
+              ))}
+              {lastSets[0]?.completedAt && (
+                <span className="ml-1">· {formatRelativeDate(lastSets[0].completedAt)}</span>
               )}
             </p>
           )}
         </div>
-        {pb && (() => {
-          const w = parseFloat(pb.actualWeightKg ?? pb.value) || 0;
-          const r = parseInt(pb.actualReps) || 0;
-          const orm = r === 1 ? w : Math.round(w * (1 + r / 30) * 10) / 10;
+        {pbs.length > 0 && (() => {
+          // Best estimated 1RM across all rep-range PBs
+          const bestOrm = pbs.reduce((best, p) => {
+            const w = parseFloat(p.actualWeightKg) || 0;
+            const r = parseInt(p.actualReps) || 0;
+            const est = r === 1 ? w : Math.round(w * (1 + r / 30) * 10) / 10;
+            return est > best ? est : best;
+          }, 0);
           return (
             <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
-                <Trophy size={10} /> PB: {w}kg × {r}r
-              </span>
-              {orm > 0 && (
+              {pbs.slice(0, 2).map((p, i) => {
+                const w = parseFloat(p.actualWeightKg) || 0;
+                const r = parseInt(p.actualReps) || 0;
+                return (
+                  <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
+                    <Trophy size={10} /> PB: {w}kg × {r}r
+                  </span>
+                );
+              })}
+              {bestOrm > 0 && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-raised)', color: 'var(--text-dim)' }}>
-                  ~{orm}kg 1RM
+                  ~{bestOrm}kg 1RM
                 </span>
               )}
             </div>
@@ -417,6 +433,18 @@ function CompletionCard({ result, onDone }) {
   );
 }
 
+function ExerciseItemShimmer() {
+  return (
+    <div className="card !py-3 flex items-center justify-between animate-pulse">
+      <div className="min-w-0 flex-1">
+        <div className="h-3.5 rounded-full mb-2" style={{ backgroundColor: 'var(--bg-raised)', width: '58%' }} />
+        <div className="h-2.5 rounded-full" style={{ backgroundColor: 'var(--bg-raised)', width: '32%' }} />
+      </div>
+      <div className="w-6 h-6 rounded-lg shrink-0 ml-3" style={{ backgroundColor: 'var(--bg-raised)' }} />
+    </div>
+  );
+}
+
 export default function WorkoutActive() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -447,6 +475,9 @@ export default function WorkoutActive() {
   const [exPage, setExPage] = useState(1);
   const [exHasMore, setExHasMore] = useState(false);
   const [exLoadingMore, setExLoadingMore] = useState(false);
+  const [exEquipment, setExEquipment] = useState([]);
+  const [selectedExIds, setSelectedExIds] = useState(new Set());
+  const exSentinelRef = useRef(null);
 
   useEffect(() => {
     fetchSession(id);
@@ -469,18 +500,23 @@ export default function WorkoutActive() {
     }
   }, [activeSession?.name, editingName]);
 
-  // Fetch categories once when add-exercise sheet opens (cached 30 min)
+  // Fetch categories + equipment once when add-exercise sheet opens (cached 30 min)
   useEffect(() => {
     if (!showAddExercise) return;
-    const cached = getCache('exercise-categories');
-    if (cached) { setExCategories(cached); return; }
-    exercisesApi.getCategories()
-      .then((data) => {
-        const list = Array.isArray(data) ? data : [];
-        setExCategories(list);
-        setCache('exercise-categories', list, 30 * 60 * 1000);
-      })
-      .catch(() => {});
+    const cachedCats = getCachedCategories();
+    const cachedEquip = getCache('exercise-equipment');
+    if (cachedCats) setExCategories(cachedCats);
+    if (cachedEquip) setExEquipment(cachedEquip);
+    if (cachedCats && cachedEquip) return;
+    Promise.all([
+      cachedCats ? Promise.resolve(cachedCats) : exercisesApi.getCategories(),
+      cachedEquip ? Promise.resolve(cachedEquip) : exercisesApi.getEquipment(),
+    ]).then(([cats, equip]) => {
+      const c = Array.isArray(cats) ? cats : [];
+      const e = Array.isArray(equip) ? equip : [];
+      if (!cachedCats) { setExCategories(c); setCache('exercise-categories', c, 30 * 60 * 1000); }
+      if (!cachedEquip) { setExEquipment(e); setCache('exercise-equipment', e, 30 * 60 * 1000); }
+    }).catch(() => {});
   }, [showAddExercise]);
 
   // Exercise search (with category filter + pagination)
@@ -488,16 +524,18 @@ export default function WorkoutActive() {
     if (pageNum === 1) setExLoading(true);
     else setExLoadingMore(true);
     try {
-      const data = await exercisesApi.list({
+      const { items, meta } = await exercisesApi.list({
         search: q || undefined,
         categoryId: categoryId || undefined,
         page: pageNum,
         pageSize: 15,
       });
-      const list = Array.isArray(data) ? data : data?.exercises || [];
-      const more = Array.isArray(data) ? list.length === 15 : !!data?.pagination?.hasMore;
-      if (append) setExResults((prev) => [...prev, ...list]);
-      else setExResults(list);
+      const total = parseInt(meta.total, 10);
+      const more = !isNaN(total)
+        ? meta.page * meta.pageSize < total
+        : items.length >= 15;
+      if (append) setExResults((prev) => [...prev, ...items]);
+      else setExResults(items);
       setExHasMore(more);
       setExPage(pageNum);
     } catch {
@@ -514,28 +552,54 @@ export default function WorkoutActive() {
     return () => clearTimeout(timer);
   }, [exSearch, exCategoryFilter, showAddExercise, searchExercises]);
 
-  const handleAddExerciseToWorkout = async (exercise) => {
-    setAddingExId(exercise.id);
-    const maxOrder = exercises.reduce((max, ex) => Math.max(max, ex.orderInSession || 0), 0);
-    await addSet(id, {
-      itemType: 'EXERCISE',
-      exerciseId: exercise.id,
-      exerciseName: exercise.name,
-      orderInSession: maxOrder + 1,
-      setNumber: 1,
-      plannedReps: 10,
-      plannedWeightKg: '0',
-    });
-    // Auto-add a 90s rest block after the exercise
-    await addSet(id, {
-      itemType: 'REST',
-      orderInSession: maxOrder + 2,
-      durationSeconds: 90,
-    });
+  // Infinite scroll for exercise picker.
+  // The full-screen panel is fixed inset-0 overflow-y-auto, so the sentinel
+  // is truly visible in the viewport when scrolled near the bottom — root: null works.
+  useEffect(() => {
+    const el = exSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && exHasMore && !exLoadingMore) {
+          searchExercises(exSearch, exCategoryFilter, exPage + 1, true);
+        }
+      },
+      { rootMargin: '100px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [exHasMore, exLoadingMore, exPage, exSearch, exCategoryFilter, searchExercises]);
+
+  const handleBatchAdd = async () => {
+    if (selectedExIds.size === 0) return;
+    const toAdd = exResults.filter((ex) => selectedExIds.has(ex.id));
+    setAddingExId('batch');
+    let order = exercises.reduce((max, ex) => Math.max(max, ex.orderInSession || 0), 0);
+    for (const exercise of toAdd) {
+      order += 1;
+      await addSet(id, {
+        itemType: 'EXERCISE',
+        exerciseId: exercise.id,
+        exerciseName: exercise.name,
+        orderInSession: order,
+        setNumber: 1,
+        plannedReps: 10,
+        plannedWeightKg: '0',
+      });
+      order += 1;
+      await addSet(id, {
+        itemType: 'REST',
+        orderInSession: order,
+        durationSeconds: 90,
+      });
+    }
     await fetchSession(id);
     setAddingExId(null);
+    setSelectedExIds(new Set());
     setShowAddExercise(false);
     setExSearch('');
+    setExCategoryFilter('');
+    setExResults([]);
   };
 
   const doFinish = async () => {
@@ -687,103 +751,155 @@ export default function WorkoutActive() {
         onCancel={() => setShowFinishConfirm(false)}
       />
 
-      {/* Add Exercise Bottom Sheet */}
-      <BottomSheet
-        open={showAddExercise}
-        onClose={() => { setShowAddExercise(false); setExSearch(''); setExCategoryFilter(''); setExResults([]); }}
-        title="Add Exercise"
-      >
-        {/* Search */}
-        <div className="relative mb-3">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
-          <input
-            type="text"
-            value={exSearch}
-            onChange={(e) => setExSearch(e.target.value)}
-            placeholder="Search exercises..."
-            className="w-full !pl-11"
-            autoFocus
-          />
-        </div>
+      {/* Add Exercise — full-screen panel so IntersectionObserver works with root: null */}
+      {showAddExercise && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto animate-fade-in-fast"
+          style={{ backgroundColor: 'var(--bg-base)' }}
+        >
+          {/* Sticky header + search + chips */}
+          <div
+            className="sticky top-0 z-10 px-5 pt-5 pb-4"
+            style={{ backgroundColor: 'var(--bg-base)', borderBottom: '1px solid var(--border-subtle)' }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <button
+                onClick={() => { setShowAddExercise(false); setExSearch(''); setExCategoryFilter(''); setExResults([]); setSelectedExIds(new Set()); }}
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200"
+                style={{ backgroundColor: 'var(--bg-raised)', border: '1px solid var(--border-default)' }}
+              >
+                <ArrowLeft size={16} />
+              </button>
+              <h2 className="text-xl font-bold">Add Exercise</h2>
+            </div>
 
-        {/* Category chips */}
-        {exCategories.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
-            <button
-              onClick={() => setExCategoryFilter('')}
-              className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border"
-              style={!exCategoryFilter
-                ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
-                : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
-              }
+            {/* Search */}
+            <div className="relative mb-3">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }} />
+              <input
+                type="text"
+                value={exSearch}
+                onChange={(e) => setExSearch(e.target.value)}
+                placeholder="Search exercises..."
+                className="w-full !pl-11"
+                autoFocus
+              />
+            </div>
+
+            {/* Category chips */}
+            {exCategories.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                <button
+                  onClick={() => setExCategoryFilter('')}
+                  className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border"
+                  style={!exCategoryFilter
+                    ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+                    : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                  }
+                >
+                  All
+                </button>
+                {exCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setExCategoryFilter(exCategoryFilter === cat.id ? '' : cat.id)}
+                    className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border"
+                    style={exCategoryFilter === cat.id
+                      ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+                      : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                    }
+                  >
+                    {cat.shortName || cat.displayName || cat.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sticky "Add selected" button */}
+          {selectedExIds.size > 0 && (
+            <div
+              className="sticky bottom-0 px-5 py-4"
+              style={{ backgroundColor: 'var(--bg-base)', borderTop: '1px solid var(--border-subtle)' }}
             >
-              All
-            </button>
-            {exCategories.map((cat) => (
               <button
-                key={cat.id}
-                onClick={() => setExCategoryFilter(exCategoryFilter === cat.id ? '' : cat.id)}
-                className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border"
-                style={exCategoryFilter === cat.id
-                  ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
-                  : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                onClick={handleBatchAdd}
+                disabled={addingExId === 'batch'}
+                className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {addingExId === 'batch'
+                  ? <><Loader2 size={14} className="animate-spin" /> Adding…</>
+                  : <><Plus size={14} /> Add {selectedExIds.size} Exercise{selectedExIds.size > 1 ? 's' : ''}</>
                 }
-              >
-                {cat.shortName || cat.displayName}
               </button>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
 
-        {/* Exercise list */}
-        {exLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 size={20} className="animate-spin" style={{ color: 'var(--text-dim)' }} />
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-72 overflow-y-auto">
-            {exResults.map((ex) => (
-              <button
-                key={ex.id}
-                onClick={() => handleAddExerciseToWorkout(ex)}
-                disabled={addingExId === ex.id}
-                className="w-full card !py-3 flex items-center justify-between text-left"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-sm">{ex.name}</p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
-                    {ex.primaryMuscle || ex.muscleGroup || ''}
-                    {(ex.equipment || ex.equipmentName) && (
-                      <span className="ml-1.5 before:content-['·'] before:mr-1.5">{ex.equipment || ex.equipmentName}</span>
-                    )}
+          {/* Exercise list */}
+          <div className="px-5 pt-3 pb-10">
+            {exLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 8 }, (_, i) => <ExerciseItemShimmer key={i} />)}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {exResults.map((ex) => {
+                  const selected = selectedExIds.has(ex.id);
+                  const muscle = exCategories.find((c) => String(c.id) === String(ex.primaryMuscleId));
+                  const equip = exEquipment.find((e) => String(e.id) === String(ex.equipmentId));
+                  const muscleName = muscle?.shortName || muscle?.displayName || '';
+                  const equipName = equip?.displayName || equip?.name || '';
+                  return (
+                    <button
+                      key={ex.id}
+                      onClick={() => {
+                        setSelectedExIds((prev) => {
+                          const s = new Set(prev);
+                          s.has(ex.id) ? s.delete(ex.id) : s.add(ex.id);
+                          return s;
+                        });
+                      }}
+                      className="w-full card !py-3 flex items-center justify-between text-left transition-all duration-150"
+                      style={selected ? { borderColor: 'var(--btn-primary-bg)', backgroundColor: 'color-mix(in srgb, var(--btn-primary-bg) 8%, transparent)' } : {}}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{ex.name}</p>
+                        <p className="text-xs mt-0.5 flex gap-1 items-center" style={{ color: 'var(--text-dim)' }}>
+                          {muscleName && <span>{muscleName}</span>}
+                          {muscleName && equipName && <span style={{ color: 'var(--text-faint)' }}>&middot;</span>}
+                          {equipName && <span>{equipName}</span>}
+                        </p>
+                      </div>
+                      <div
+                        className="w-6 h-6 rounded-lg shrink-0 ml-3 flex items-center justify-center border transition-all duration-150"
+                        style={selected
+                          ? { backgroundColor: 'var(--btn-primary-bg)', borderColor: 'var(--btn-primary-bg)' }
+                          : { borderColor: 'var(--border-default)' }
+                        }
+                      >
+                        {selected && <Check size={13} style={{ color: 'var(--btn-primary-text)' }} />}
+                      </div>
+                    </button>
+                  );
+                })}
+                {exResults.length === 0 && (
+                  <p className="text-center text-sm py-10" style={{ color: 'var(--text-dim)' }}>
+                    {exSearch || exCategoryFilter ? 'No exercises found' : 'Select a category or search'}
                   </p>
-                </div>
-                {addingExId === ex.id ? (
-                  <Loader2 size={14} className="animate-spin shrink-0" style={{ color: 'var(--text-dim)' }} />
-                ) : (
-                  <Plus size={14} className="shrink-0" style={{ color: 'var(--text-muted)' }} />
                 )}
-              </button>
-            ))}
-            {!exLoading && exResults.length === 0 && (
-              <p className="text-center text-sm py-6" style={{ color: 'var(--text-dim)' }}>
-                {exSearch || exCategoryFilter ? 'No exercises found' : 'Select a category or search'}
-              </p>
-            )}
-            {exHasMore && (
-              <button
-                onClick={() => searchExercises(exSearch, exCategoryFilter, exPage + 1, true)}
-                disabled={exLoadingMore}
-                className="w-full py-2.5 text-sm transition-all duration-200 flex items-center justify-center gap-2"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                {exLoadingMore ? <Loader2 size={12} className="animate-spin" /> : null}
-                Load more
-              </button>
+                {/* Infinite scroll sentinel — in full viewport flow, root: null works */}
+                <div ref={exSentinelRef} className="flex items-center justify-center py-4">
+                  {exLoadingMore && (
+                    <div className="space-y-2 w-full">
+                      {Array.from({ length: 3 }, (_, i) => <ExerciseItemShimmer key={i} />)}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
-        )}
-      </BottomSheet>
+        </div>
+      )}
     </div>
   );
 }

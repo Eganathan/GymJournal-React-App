@@ -114,8 +114,8 @@
     background-color: var(--bg-raised);
   }
   .page {
-    @apply px-6 pt-6 max-w-3xl mx-auto min-h-screen;
-    padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
+    @apply px-6 pt-6 max-w-3xl mx-auto;
+    padding-bottom: calc(9rem + env(safe-area-inset-bottom, 0px));
   }
   @media (min-width: 1024px) {
     .page {

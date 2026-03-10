@@ -3,6 +3,30 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Dumbbell, ChevronRight, Loader2, Plus, Clock, Play, Zap, Trash2 } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { formatRelativeDateTime, formatDuration } from '../lib/dateUtils';
+
+const PERIODS = [
+  { key: 'all', label: 'All' },
+  { key: 'month', label: 'This Month' },
+  { key: 'week', label: 'This Week' },
+];
+
+function getPeriodDates(period) {
+  const today = new Date();
+  const toYMD = (d) => d.toISOString().slice(0, 10);
+  if (period === 'week') {
+    const start = new Date(today);
+    start.setHours(0, 0, 0, 0);
+    const day = start.getDay();
+    start.setDate(start.getDate() - (day === 0 ? 6 : day - 1)); // Monday
+    return { startDate: toYMD(start), endDate: toYMD(today) };
+  }
+  if (period === 'month') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    return { startDate: toYMD(start), endDate: toYMD(today) };
+  }
+  return {};
+}
 
 const STATUS_BADGE = {
   IN_PROGRESS: { bg: 'bg-amber-500/10', text: 'text-amber-500', label: 'In Progress' },
@@ -10,31 +34,23 @@ const STATUS_BADGE = {
   CANCELLED: { bg: 'bg-red-500/10', text: 'text-red-400', label: 'Cancelled' },
 };
 
-function formatDuration(startedAt, completedAt) {
-  if (!startedAt) return '';
-  const start = new Date(startedAt).getTime();
-  const end = completedAt ? new Date(completedAt).getTime() : Date.now();
-  const mins = Math.floor((end - start) / 60000);
-  if (mins < 60) return `${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${h}h ${m}m`;
-}
-
 export default function Workouts() {
   const navigate = useNavigate();
   const sessions = useWorkoutStore((s) => s.sessions);
   const isLoading = useWorkoutStore((s) => s.isLoading);
+  const hasMore = useWorkoutStore((s) => s.hasMore);
   const fetchSessions = useWorkoutStore((s) => s.fetchSessions);
+  const loadMoreSessions = useWorkoutStore((s) => s.loadMoreSessions);
   const deleteWorkout = useWorkoutStore((s) => s.deleteWorkout);
   const startWorkout = useWorkoutStore((s) => s.startWorkout);
   const [startingEmpty, setStartingEmpty] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [period, setPeriod] = useState('all');
 
   useEffect(() => {
-    fetchSessions();
+    fetchSessions(getPeriodDates(period), true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [period]);
 
   const handleQuickStart = async () => {
     setStartingEmpty(true);
@@ -72,6 +88,23 @@ export default function Workouts() {
         </Link>
       </div>
 
+      {/* Period filter chips */}
+      <div className="flex gap-2 mb-5 overflow-x-auto scrollbar-hide animate-fade-in" style={{ animationDelay: '20ms' }}>
+        {PERIODS.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => setPeriod(p.key)}
+            className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border"
+            style={period === p.key
+              ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+              : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+            }
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       {/* Quick start empty workout */}
       <button
         onClick={handleQuickStart}
@@ -104,6 +137,7 @@ export default function Workouts() {
           </Link>
         </div>
       ) : (
+        <>
         <div className="space-y-3 stagger">
           {sessions.map((session) => {
             const badge = STATUS_BADGE[session.status] || STATUS_BADGE.COMPLETED;
@@ -118,7 +152,7 @@ export default function Workouts() {
                     </span>
                   </div>
                   <p className="text-xs flex items-center gap-2" style={{ color: 'var(--text-dim)' }}>
-                    <span>{new Date(session.startedAt || session.createdAt).toLocaleDateString()}</span>
+                    <span>{formatRelativeDateTime(session.startedAt || session.createdAt)}</span>
                     {session.startedAt && (
                       <>
                         <span style={{ color: 'var(--text-faint)' }}>&middot;</span>
@@ -153,6 +187,18 @@ export default function Workouts() {
             );
           })}
         </div>
+        {hasMore && (
+          <button
+            onClick={loadMoreSessions}
+            disabled={isLoading}
+            className="w-full py-3 mt-2 text-sm transition-all duration-200 flex items-center justify-center gap-2"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {isLoading ? <Loader2 size={14} className="animate-spin" /> : null}
+            Load more
+          </button>
+        )}
+        </>
       )}
 
       <ConfirmDialog

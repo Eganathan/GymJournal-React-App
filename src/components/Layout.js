@@ -1,7 +1,10 @@
-import { NavLink, Outlet } from 'react-router-dom';
-import { Home, Droplets, Dumbbell, ClipboardList, Scale, Sun, Moon, LogOut } from 'lucide-react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Home, Droplets, Dumbbell, ClipboardList, Scale, Sun, Moon, LogOut, Activity } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
+
+// Routes where the mobile bottom nav is hidden (full-screen focus pages)
+const HIDE_NAV_PATTERNS = [/\/routines\/[^/]+\/add-exercise/, /\/workouts\/[^/]+/];
 
 const tabs = [
   { to: '/', icon: Home, label: 'Home' },
@@ -9,9 +12,12 @@ const tabs = [
   { to: '/water', icon: Droplets, label: 'Water' },
   { to: '/routines', icon: ClipboardList, label: 'Routines' },
   { to: '/metrics', icon: Scale, label: 'Body' },
+  { to: '/logs', icon: Activity, label: 'Logs' },
 ];
 
 export default function Layout() {
+  const location = useLocation();
+  const hideNav = HIDE_NAV_PATTERNS.some((p) => p.test(location.pathname));
   const [darkMode, setDarkMode] = useState(() => {
     const stored = localStorage.getItem('theme');
     return stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -20,25 +26,31 @@ export default function Layout() {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (darkMode) {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    if (darkMode) root.classList.add('dark');
+    else root.classList.remove('dark');
     localStorage.setItem('theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
   const displayName = user?.firstName || user?.email?.split('@')[0] || 'User';
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 backdrop-blur-md" style={{ backgroundColor: 'var(--bg-nav)', borderBottom: '1px solid var(--border-subtle)' }}>
-        <div className="flex items-center justify-between h-14 px-5 lg:px-8 max-w-screen-xl mx-auto">
+    <div style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+
+      {/* ── Fixed Top Header ─────────────────────────────────── */}
+      {/* Fixed so it never participates in the scroll context that hides it */}
+      <header
+        className="fixed top-0 left-0 right-0 z-40 backdrop-blur-md"
+        style={{
+          backgroundColor: 'var(--bg-nav)',
+          borderBottom: '1px solid var(--border-subtle)',
+          height: '3.5rem', // h-14 = 56px
+        }}
+      >
+        <div className="flex items-center justify-between h-full px-5 lg:px-8 max-w-screen-xl mx-auto">
           <span className="text-lg font-bold tracking-tight">GymJournal</span>
           <div className="flex items-center gap-3">
-            {/* Name visible on sm+; initial avatar on mobile */}
             <span className="text-sm hidden sm:block" style={{ color: 'var(--text-muted)' }}>{displayName}</span>
+            {/* Initial avatar on mobile */}
             <div
               className="sm:hidden w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
               style={{ backgroundColor: 'var(--bg-raised)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
@@ -65,9 +77,18 @@ export default function Layout() {
         </div>
       </header>
 
-      <div className="flex flex-1">
+      {/* ── Content (offset below fixed header) ──────────────── */}
+      {/* pt-14 = 3.5rem matches the header height exactly */}
+      <div className="flex pt-14 min-h-screen">
+
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col w-52 shrink-0 pt-6 px-3 sticky top-14 h-[calc(100vh-3.5rem)]" style={{ borderRight: '1px solid var(--border-subtle)' }}>
+        <aside
+          className="hidden lg:flex flex-col w-52 shrink-0 pt-6 px-3 sticky top-14 self-start"
+          style={{
+            borderRight: '1px solid var(--border-subtle)',
+            height: 'calc(100vh - 3.5rem)', // fills from below header to bottom of viewport
+          }}
+        >
           <nav className="flex flex-col gap-1">
             {tabs.map(({ to, icon: Icon, label }) => (
               <NavLink
@@ -102,14 +123,14 @@ export default function Layout() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 min-h-0">
           <Outlet />
         </main>
       </div>
 
-      {/* Mobile Bottom Nav */}
+      {/* ── Mobile Bottom Nav (fixed) ─────────────────────────── */}
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 backdrop-blur-md z-50"
+        className={`lg:hidden fixed bottom-0 left-0 right-0 backdrop-blur-md z-50 transition-transform duration-300 ${hideNav ? 'translate-y-full' : 'translate-y-0'}`}
         style={{
           backgroundColor: 'var(--bg-nav)',
           borderTop: '1px solid var(--border-subtle)',
@@ -123,7 +144,7 @@ export default function Layout() {
               to={to}
               end={to === '/'}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-200 ${
+                `flex flex-col items-center gap-0.5 px-2 py-2 rounded-xl transition-all duration-200 ${
                   isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-dim)]'
                 }`
               }
