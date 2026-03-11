@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, Plus, Search, Timer, Trash2, ChevronUp, ChevronDown, Globe, Lock, Check } from 'lucide-react';
 import { useRoutineStore } from '../stores/routineStore';
 import { exercisesApi } from '../lib/api';
-import BottomSheet from '../components/BottomSheet';
 import { getCachedCategories, setCache } from '../lib/cache';
 
 function ExerciseItemShimmer() {
@@ -25,6 +24,7 @@ const DEFAULT_SET_ROWS = () => [
   { _id: crypto.randomUUID(), reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
   { _id: crypto.randomUUID(), reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
 ];
+const REST_DEFAULT_S = 120;
 
 export default function RoutineNew() {
   const navigate = useNavigate();
@@ -48,12 +48,8 @@ export default function RoutineNew() {
   const [exHasMore, setExHasMore] = useState(false);
   const [categories, setCategories] = useState([]);
   const [catFilter, setCatFilter] = useState('');
-  const [addingExId, setAddingExId] = useState(null);
+  const [selectedExIds, setSelectedExIds] = useState(new Set());
   const exSentinelRef = useRef(null);
-
-  // Rest duration sheet
-  const [showRestSheet, setShowRestSheet] = useState(false);
-  const [restDuration, setRestDuration] = useState(90);
 
   // Load categories (with cache)
   useEffect(() => {
@@ -117,38 +113,38 @@ export default function RoutineNew() {
     return () => observer.disconnect();
   }, [exHasMore, exLoadingMore, exPage, fetchExercises]);
 
-  // Step 2 — handleAddExercise using setRows
-  const handleAddExercise = (exercise) => {
-    setAddingExId(exercise.id);
-    setItems((prev) => [
-      ...prev,
-      {
-        type: 'EXERCISE',
-        exerciseId: exercise.id,
-        exerciseName: exercise.name,
-        setRows: DEFAULT_SET_ROWS(),
-        notes: '',
-        order: prev.length + 1,
-      },
-    ]);
-    setTimeout(() => {
-      setAddingExId(null);
-      setShowExSheet(false);
-      setExSearch('');
-    }, 200);
-  };
+  const handleBatchAdd = () => {
+    if (selectedExIds.size === 0) return;
+    const toAdd = exResults.filter((ex) => selectedExIds.has(ex.id));
 
-  const handleAddRest = () => {
-    setItems((prev) => [
-      ...prev,
-      {
-        type: 'REST',
-        durationSeconds: restDuration,
-        order: prev.length + 1,
-      },
-    ]);
-    setShowRestSheet(false);
-    setRestDuration(90);
+    setItems((prev) => {
+      const newBlocks = [];
+      const lastItem = prev[prev.length - 1];
+
+      toAdd.forEach((ex, idx) => {
+        const needsLeadingRest = idx === 0
+          ? lastItem?.type === 'EXERCISE'
+          : true;
+        if (needsLeadingRest) {
+          newBlocks.push({ type: 'REST', durationSeconds: REST_DEFAULT_S });
+        }
+        newBlocks.push({
+          type: 'EXERCISE',
+          exerciseId: ex.id,
+          exerciseName: ex.name,
+          setRows: DEFAULT_SET_ROWS(),
+          notes: '',
+        });
+      });
+
+      return [...prev, ...newBlocks].map((item, i) => ({ ...item, order: i + 1 }));
+    });
+
+    setSelectedExIds(new Set());
+    setShowExSheet(false);
+    setExSearch('');
+    setCatFilter('');
+    setExResults([]);
   };
 
   const handleRemoveItem = (index) => {
@@ -168,7 +164,7 @@ export default function RoutineNew() {
     });
   };
 
-  // Step 4 — Per-set row handlers
+  // Per-set row handlers
   const handleSetRowChange = (itemIdx, rowIdx, field, rawValue) => {
     const value = field === 'reps'
       ? (parseInt(rawValue) || DEFAULT_REPS)
@@ -213,7 +209,13 @@ export default function RoutineNew() {
     );
   };
 
-  // Step 3 — handleSave deriving flat fields from setRows
+  const handleUpdateRestDuration = (index, seconds) => {
+    setItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, durationSeconds: seconds } : item))
+    );
+  };
+
+  // handleSave deriving flat fields from setRows
   const handleSave = async () => {
     setError('');
     if (!name.trim()) { setError('Routine name is required'); return; }
@@ -291,7 +293,7 @@ export default function RoutineNew() {
         {items.length === 0 ? (
           <div className="card text-center py-8 mb-4" style={{ color: 'var(--text-dim)' }}>
             <p className="text-sm">No exercises added yet</p>
-            <p className="text-xs mt-1">Use the buttons below to build your routine</p>
+            <p className="text-xs mt-1">Tap Add Exercise to build your routine</p>
           </div>
         ) : (
           <div className="space-y-3 mb-4">
@@ -300,17 +302,26 @@ export default function RoutineNew() {
                 {item.type === 'REST' ? (
                   /* REST Block */
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Timer size={18} style={{ color: 'var(--text-dim)' }} />
-                      <div>
-                        <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Rest</p>
-                        <p className="text-sm">
-                          {Math.floor(item.durationSeconds / 60)}:{String(item.durationSeconds % 60).padStart(2, '0')}
-                        </p>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Timer size={16} style={{ color: 'var(--text-dim)' }} />
+                      <div className="flex flex-wrap gap-1.5">
+                        {[30, 60, 90, 120, 180].map((sec) => (
+                          <button
+                            key={sec}
+                            onClick={() => handleUpdateRestDuration(i, sec)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium border transition-all duration-150"
+                            style={item.durationSeconds === sec
+                              ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
+                              : { backgroundColor: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border-default)' }
+                            }
+                          >
+                            {sec < 60 ? `${sec}s` : sec % 60 === 0 ? `${sec / 60}m` : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <div className="flex flex-col gap-0.5 mr-1">
+                    <div className="flex items-center gap-1 ml-2 shrink-0">
+                      <div className="flex flex-col gap-0.5">
                         <button onClick={() => handleMoveItem(i, -1)} disabled={i === 0} className="p-0.5 disabled:opacity-10" style={{ color: 'var(--text-muted)' }}>
                           <ChevronUp size={12} />
                         </button>
@@ -343,7 +354,7 @@ export default function RoutineNew() {
                       </button>
                     </div>
 
-                    {/* Step 5 — Per-set rows */}
+                    {/* Per-set rows */}
                     <div className="mt-3">
                       {/* Column headers */}
                       <div className="grid grid-cols-[28px_1fr_1fr_28px] gap-x-2 mb-1 px-0.5">
@@ -401,21 +412,13 @@ export default function RoutineNew() {
           </div>
         )}
 
-        {/* Add buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setShowExSheet(true)}
-            className="btn-secondary flex items-center justify-center gap-2 text-sm"
-          >
-            <Plus size={14} /> Add Exercise
-          </button>
-          <button
-            onClick={() => setShowRestSheet(true)}
-            className="btn-secondary flex items-center justify-center gap-2 text-sm"
-          >
-            <Timer size={14} /> Add Rest
-          </button>
-        </div>
+        {/* Add Exercise */}
+        <button
+          onClick={() => setShowExSheet(true)}
+          className="btn-secondary flex items-center justify-center gap-2 text-sm w-full"
+        >
+          <Plus size={14} /> Add Exercise
+        </button>
       </div>
 
       {/* Visibility */}
@@ -468,7 +471,13 @@ export default function RoutineNew() {
           >
             <div className="flex items-center gap-3 mb-4">
               <button
-                onClick={() => { setShowExSheet(false); setExSearch(''); setCatFilter(''); setExResults([]); }}
+                onClick={() => {
+                  setShowExSheet(false);
+                  setExSearch('');
+                  setCatFilter('');
+                  setExResults([]);
+                  setSelectedExIds(new Set());
+                }}
                 className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200"
                 style={{ backgroundColor: 'var(--bg-raised)', border: '1px solid var(--border-default)' }}
               >
@@ -512,6 +521,18 @@ export default function RoutineNew() {
             )}
           </div>
 
+          {/* Sticky confirm bar */}
+          {selectedExIds.size > 0 && (
+            <div
+              className="sticky bottom-0 px-5 py-4 z-10"
+              style={{ backgroundColor: 'var(--bg-base)', borderTop: '1px solid var(--border-subtle)' }}
+            >
+              <button onClick={handleBatchAdd} className="btn-primary w-full !py-3">
+                Add {selectedExIds.size} Exercise{selectedExIds.size > 1 ? 's' : ''}
+              </button>
+            </div>
+          )}
+
           {/* Exercise list */}
           <div className="px-5 pt-3 pb-10">
             {exLoading ? (
@@ -522,13 +543,25 @@ export default function RoutineNew() {
               <div className="space-y-2">
                 {exResults.map((ex) => {
                   const alreadyAdded = exerciseNames.has(ex.name);
+                  const isSelected = selectedExIds.has(ex.id);
                   return (
                     <button
                       key={ex.id}
-                      onClick={() => !alreadyAdded && handleAddExercise(ex)}
-                      disabled={alreadyAdded || addingExId === ex.id}
-                      className="w-full card !py-3 flex items-center justify-between text-left"
-                      style={alreadyAdded ? { opacity: 0.5 } : {}}
+                      onClick={() => {
+                        if (alreadyAdded) return;
+                        setSelectedExIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(ex.id)) next.delete(ex.id);
+                          else next.add(ex.id);
+                          return next;
+                        });
+                      }}
+                      disabled={alreadyAdded}
+                      className="w-full card !py-3 flex items-center justify-between text-left transition-all duration-150"
+                      style={{
+                        opacity: alreadyAdded ? 0.45 : 1,
+                        borderColor: isSelected ? 'var(--btn-primary-bg)' : undefined,
+                      }}
                     >
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-sm truncate">{ex.name}</p>
@@ -539,10 +572,18 @@ export default function RoutineNew() {
                       </div>
                       {alreadyAdded ? (
                         <Check size={14} className="shrink-0 ml-3 text-green-500" />
-                      ) : addingExId === ex.id ? (
-                        <Loader2 size={14} className="animate-spin shrink-0 ml-3" style={{ color: 'var(--text-dim)' }} />
+                      ) : isSelected ? (
+                        <div
+                          className="w-5 h-5 rounded-md shrink-0 ml-3 flex items-center justify-center"
+                          style={{ backgroundColor: 'var(--btn-primary-bg)' }}
+                        >
+                          <Check size={11} style={{ color: 'var(--btn-primary-text)' }} />
+                        </div>
                       ) : (
-                        <Plus size={14} className="shrink-0 ml-3" style={{ color: 'var(--text-muted)' }} />
+                        <div
+                          className="w-5 h-5 rounded-md shrink-0 ml-3 border"
+                          style={{ borderColor: 'var(--border-default)' }}
+                        />
                       )}
                     </button>
                   );
@@ -565,39 +606,6 @@ export default function RoutineNew() {
           </div>
         </div>
       )}
-
-      {/* Add Rest Bottom Sheet */}
-      <BottomSheet open={showRestSheet} onClose={() => setShowRestSheet(false)} title="Add Rest Block">
-        <div className="text-center mb-6">
-          <p className="text-4xl font-bold tabular-nums mb-2">
-            {Math.floor(restDuration / 60)}:{String(restDuration % 60).padStart(2, '0')}
-          </p>
-          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>minutes : seconds</p>
-        </div>
-        <div className="flex gap-2 justify-center mb-6">
-          {[30, 60, 90, 120, 180].map((sec) => (
-            <button
-              key={sec}
-              onClick={() => setRestDuration(sec)}
-              className="px-3 py-2 rounded-xl text-sm font-medium border transition-all duration-200"
-              style={restDuration === sec
-                ? { backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', borderColor: 'var(--btn-primary-bg)' }
-                : { borderColor: 'var(--border-default)', color: 'var(--text-muted)' }
-              }
-            >
-              {sec >= 60 ? `${sec / 60}m` : `${sec}s`}
-            </button>
-          ))}
-        </div>
-        <input
-          type="range" min="15" max="300" step="15" value={restDuration}
-          onChange={(e) => setRestDuration(parseInt(e.target.value))}
-          className="w-full mb-6"
-        />
-        <button onClick={handleAddRest} className="btn-primary w-full">
-          Add Rest Block
-        </button>
-      </BottomSheet>
     </div>
   );
 }
