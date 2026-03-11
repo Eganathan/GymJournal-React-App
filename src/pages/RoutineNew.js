@@ -18,20 +18,17 @@ function ExerciseItemShimmer() {
   );
 }
 
+const DEFAULT_REPS = 10;
+const DEFAULT_WEIGHT = null;
+const DEFAULT_SET_ROWS = () => [
+  { _id: crypto.randomUUID(), reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
+  { _id: crypto.randomUUID(), reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
+  { _id: crypto.randomUUID(), reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
+];
+
 export default function RoutineNew() {
   const navigate = useNavigate();
   const createRoutine = useRoutineStore((s) => s.createRoutine);
-
-  // Step 1 — Constants
-  const DEFAULT_REPS = 10;
-  const DEFAULT_WEIGHT = null;
-  // eslint-disable-next-line no-unused-vars
-  const REST_DEFAULT_S = 120;
-  const DEFAULT_SET_ROWS = () => [
-    { reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
-    { reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
-    { reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT },
-  ];
 
   // Routine fields
   const [name, setName] = useState('');
@@ -175,7 +172,7 @@ export default function RoutineNew() {
   const handleSetRowChange = (itemIdx, rowIdx, field, rawValue) => {
     const value = field === 'reps'
       ? (parseInt(rawValue) || DEFAULT_REPS)
-      : (rawValue === '' ? DEFAULT_WEIGHT : rawValue);
+      : (rawValue === '' ? DEFAULT_WEIGHT : parseFloat(rawValue));
 
     setItems((prev) =>
       prev.map((item, i) => {
@@ -201,7 +198,7 @@ export default function RoutineNew() {
       prev.map((item, i) => {
         if (i !== itemIdx) return item;
         const last = item.setRows[item.setRows.length - 1] || { reps: DEFAULT_REPS, weightKg: DEFAULT_WEIGHT };
-        return { ...item, setRows: [...item.setRows, { ...last }] };
+        return { ...item, setRows: [...item.setRows, { ...last, _id: crypto.randomUUID() }] };
       })
     );
   };
@@ -357,7 +354,7 @@ export default function RoutineNew() {
                       </div>
 
                       {item.setRows.map((row, rowIdx) => (
-                        <div key={rowIdx} className="grid grid-cols-[28px_1fr_1fr_28px] gap-x-2 mb-1.5 items-center">
+                        <div key={row._id} className="grid grid-cols-[28px_1fr_1fr_28px] gap-x-2 mb-1.5 items-center">
                           <span className="text-xs text-center font-medium tabular-nums" style={{ color: 'var(--text-dim)' }}>
                             {rowIdx + 1}
                           </span>
