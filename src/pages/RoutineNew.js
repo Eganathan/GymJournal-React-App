@@ -48,7 +48,8 @@ export default function RoutineNew() {
   const [exHasMore, setExHasMore] = useState(false);
   const [categories, setCategories] = useState([]);
   const [catFilter, setCatFilter] = useState('');
-  const [selectedExIds, setSelectedExIds] = useState(new Set());
+  // Fix 1: use a Map<id, exerciseObject> so selections survive search/filter changes
+  const [selectedExMap, setSelectedExMap] = useState(new Map());
   const exSentinelRef = useRef(null);
 
   // Load categories (with cache)
@@ -114,8 +115,9 @@ export default function RoutineNew() {
   }, [exHasMore, exLoadingMore, exPage, fetchExercises]);
 
   const handleBatchAdd = () => {
-    if (selectedExIds.size === 0) return;
-    const toAdd = exResults.filter((ex) => selectedExIds.has(ex.id));
+    // Fix 1: derive toAdd from the Map, not from the current exResults list
+    if (selectedExMap.size === 0) return;
+    const toAdd = Array.from(selectedExMap.values());
 
     setItems((prev) => {
       const newBlocks = [];
@@ -140,7 +142,7 @@ export default function RoutineNew() {
       return [...prev, ...newBlocks].map((item, i) => ({ ...item, order: i + 1 }));
     });
 
-    setSelectedExIds(new Set());
+    setSelectedExMap(new Map());
     setShowExSheet(false);
     setExSearch('');
     setCatFilter('');
@@ -247,7 +249,8 @@ export default function RoutineNew() {
     setSaving(false);
   };
 
-  const exerciseNames = new Set(items.filter((i) => i.type === 'EXERCISE').map((i) => i.exerciseName));
+  // Fix 2: use exercise IDs (not names) to detect already-added exercises
+  const addedExIds = new Set(items.filter((i) => i.type === 'EXERCISE').map((i) => i.exerciseId));
 
   return (
     <div className="page pb-28">
@@ -476,7 +479,8 @@ export default function RoutineNew() {
                   setExSearch('');
                   setCatFilter('');
                   setExResults([]);
-                  setSelectedExIds(new Set());
+                  // Fix 1: reset using Map
+                  setSelectedExMap(new Map());
                 }}
                 className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200"
                 style={{ backgroundColor: 'var(--bg-raised)', border: '1px solid var(--border-default)' }}
@@ -521,18 +525,6 @@ export default function RoutineNew() {
             )}
           </div>
 
-          {/* Sticky confirm bar */}
-          {selectedExIds.size > 0 && (
-            <div
-              className="sticky bottom-0 px-5 py-4 z-10"
-              style={{ backgroundColor: 'var(--bg-base)', borderTop: '1px solid var(--border-subtle)' }}
-            >
-              <button onClick={handleBatchAdd} className="btn-primary w-full !py-3">
-                Add {selectedExIds.size} Exercise{selectedExIds.size > 1 ? 's' : ''}
-              </button>
-            </div>
-          )}
-
           {/* Exercise list */}
           <div className="px-5 pt-3 pb-10">
             {exLoading ? (
@@ -542,17 +534,20 @@ export default function RoutineNew() {
             ) : (
               <div className="space-y-2">
                 {exResults.map((ex) => {
-                  const alreadyAdded = exerciseNames.has(ex.name);
-                  const isSelected = selectedExIds.has(ex.id);
+                  // Fix 2: check by ID, not by name
+                  const alreadyAdded = addedExIds.has(ex.id);
+                  // Fix 1: check selection via Map
+                  const isSelected = selectedExMap.has(ex.id);
                   return (
                     <button
                       key={ex.id}
                       onClick={() => {
                         if (alreadyAdded) return;
-                        setSelectedExIds((prev) => {
-                          const next = new Set(prev);
+                        // Fix 1: store the full exercise object in the Map
+                        setSelectedExMap((prev) => {
+                          const next = new Map(prev);
                           if (next.has(ex.id)) next.delete(ex.id);
-                          else next.add(ex.id);
+                          else next.set(ex.id, ex);
                           return next;
                         });
                       }}
@@ -604,6 +599,18 @@ export default function RoutineNew() {
               </div>
             )}
           </div>
+
+          {/* Fix 3: Sticky confirm bar placed AFTER the exercise list so sticky bottom-0 works correctly */}
+          {selectedExMap.size > 0 && (
+            <div
+              className="sticky bottom-0 px-5 py-4 z-10"
+              style={{ backgroundColor: 'var(--bg-base)', borderTop: '1px solid var(--border-subtle)' }}
+            >
+              <button onClick={handleBatchAdd} className="btn-primary w-full !py-3">
+                Add {selectedExMap.size} Exercise{selectedExMap.size > 1 ? 's' : ''}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
