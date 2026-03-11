@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Plus, Check, Loader2 } from 'lucide-react';
 import { useRoutineStore } from '../stores/routineStore';
@@ -37,6 +37,10 @@ export default function AddExercise() {
   const existingNames = new Set(
     (routine?.items || []).map((e) => e.exerciseName)
   );
+
+  // O(1) lookup maps for categories and equipment to prevent O(N*M) lookups during render
+  const categoryMap = useMemo(() => new Map(categories.map(c => [String(c.id), c])), [categories]);
+  const equipmentMap = useMemo(() => new Map(equipment.map(e => [String(e.id), e])), [equipment]);
 
   useEffect(() => {
     const cachedCats = getCachedCategories();
@@ -225,8 +229,8 @@ export default function AddExercise() {
           {exercises.map((ex) => {
             const added = existingNames.has(ex.name);
             const isAdding = addingId === ex.id;
-            const muscle = categories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-            const equip  = equipment.find((e) => String(e.id) === String(ex.equipmentId));
+            const muscle = categoryMap.get(String(ex.primaryMuscleId));
+            const equip  = equipmentMap.get(String(ex.equipmentId));
             const muscleName = muscle?.shortName || muscle?.displayName || '';
             const equipName  = equip?.displayName  || equip?.name        || '';
             const diff = ex.difficulty
