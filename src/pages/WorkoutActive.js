@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2, ArrowLeft } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -479,6 +479,21 @@ export default function WorkoutActive() {
   const [selectedExIds, setSelectedExIds] = useState(new Set());
   const exSentinelRef = useRef(null);
 
+  // ⚡ Bolt Performance Optimization:
+  // Convert category and equipment arrays to Maps for O(1) lookups during render.
+  // This avoids O(N*M) complexity when rendering large lists of search results.
+  const exCategoriesMap = useMemo(() => {
+    const map = new Map();
+    exCategories?.forEach((c) => map.set(String(c.id), c));
+    return map;
+  }, [exCategories]);
+
+  const exEquipmentMap = useMemo(() => {
+    const map = new Map();
+    exEquipment?.forEach((e) => map.set(String(e.id), e));
+    return map;
+  }, [exEquipment]);
+
   useEffect(() => {
     fetchSession(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -845,8 +860,8 @@ export default function WorkoutActive() {
               <div className="space-y-2">
                 {exResults.map((ex) => {
                   const selected = selectedExIds.has(ex.id);
-                  const muscle = exCategories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-                  const equip = exEquipment.find((e) => String(e.id) === String(ex.equipmentId));
+                  const muscle = exCategoriesMap.get(String(ex.primaryMuscleId));
+                  const equip = exEquipmentMap.get(String(ex.equipmentId));
                   const muscleName = muscle?.shortName || muscle?.displayName || '';
                   const equipName = equip?.displayName || equip?.name || '';
                   return (
