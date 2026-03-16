@@ -1,0 +1,3 @@
+## 2026-03-16 - Replacing Nested Array .find() Operations with useMemo-Wrapped Maps in Loops
+**Learning:** Performing `O(N)` `.find()` operations inside an `O(M)` rendering loop degrades component performance, leading to `O(N*M)` complexity.
+**Action:** Extract the search arrays into `useMemo`-wrapped `Map` objects prior to rendering. Construct the `Map` once per array update (`O(N)`), and utilize `map.get()` inside the loop for `O(1)` retrieval, improving overall complexity to `O(N + M)`. When building the `Map`, use defensive optional chaining (e.g., `array?.forEach()`) to prevent crashes during initial renders when data might be `null` or `undefined`.
