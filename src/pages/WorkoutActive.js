@@ -841,16 +841,26 @@ export default function WorkoutActive() {
               <div className="space-y-2">
                 {Array.from({ length: 8 }, (_, i) => <ExerciseItemShimmer key={i} />)}
               </div>
-            ) : (
-              <div className="space-y-2">
-                {exResults.map((ex) => {
-                  const selected = selectedExIds.has(ex.id);
-                  const muscle = exCategories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-                  const equip = exEquipment.find((e) => String(e.id) === String(ex.equipmentId));
-                  const muscleName = muscle?.shortName || muscle?.displayName || '';
-                  const equipName = equip?.displayName || equip?.name || '';
-                  return (
-                    <button
+            ) : (() => {
+              // ⚡ BOLT: O(1) Hash map lookup
+              // Replaces O(n²) nested array .find() operations inside the render loop
+              // Maps array items by ID so looking up categories and equipment takes O(1)
+              const exCategoryMap = new Map();
+              exCategories?.forEach((c) => exCategoryMap.set(String(c.id), c));
+
+              const exEquipmentMap = new Map();
+              exEquipment?.forEach((e) => exEquipmentMap.set(String(e.id), e));
+
+              return (
+                <div className="space-y-2">
+                  {exResults.map((ex) => {
+                    const selected = selectedExIds.has(ex.id);
+                    const muscle = exCategoryMap.get(String(ex.primaryMuscleId));
+                    const equip = exEquipmentMap.get(String(ex.equipmentId));
+                    const muscleName = muscle?.shortName || muscle?.displayName || '';
+                    const equipName = equip?.displayName || equip?.name || '';
+                    return (
+                      <button
                       key={ex.id}
                       onClick={() => {
                         setSelectedExIds((prev) => {
@@ -896,7 +906,8 @@ export default function WorkoutActive() {
                   )}
                 </div>
               </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}
