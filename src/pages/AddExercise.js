@@ -220,20 +220,30 @@ export default function AddExercise() {
         <div className="text-center py-16" style={{ color: 'var(--text-dim)' }}>
           <p className="text-sm">No exercises found</p>
         </div>
-      ) : (
-        <div className="space-y-3 mb-4 stagger">
-          {exercises.map((ex) => {
-            const added = existingNames.has(ex.name);
-            const isAdding = addingId === ex.id;
-            const muscle = categories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-            const equip  = equipment.find((e) => String(e.id) === String(ex.equipmentId));
-            const muscleName = muscle?.shortName || muscle?.displayName || '';
-            const equipName  = equip?.displayName  || equip?.name        || '';
-            const diff = ex.difficulty
-              ? ex.difficulty.charAt(0) + ex.difficulty.slice(1).toLowerCase()
-              : '';
-            return (
-              <div key={ex.id} className="card flex items-center justify-between gap-3 animate-fade-in">
+      ) : (() => {
+        // ⚡ BOLT: O(1) Hash map lookup
+        // Replaces O(n²) nested array .find() operations inside the render loop
+        // Maps array items by ID so looking up categories and equipment takes O(1)
+        const categoryMap = new Map();
+        categories?.forEach((c) => categoryMap.set(String(c.id), c));
+
+        const equipmentMap = new Map();
+        equipment?.forEach((e) => equipmentMap.set(String(e.id), e));
+
+        return (
+          <div className="space-y-3 mb-4 stagger">
+            {exercises.map((ex) => {
+              const added = existingNames.has(ex.name);
+              const isAdding = addingId === ex.id;
+              const muscle = categoryMap.get(String(ex.primaryMuscleId));
+              const equip  = equipmentMap.get(String(ex.equipmentId));
+              const muscleName = muscle?.shortName || muscle?.displayName || '';
+              const equipName  = equip?.displayName  || equip?.name        || '';
+              const diff = ex.difficulty
+                ? ex.difficulty.charAt(0) + ex.difficulty.slice(1).toLowerCase()
+                : '';
+              return (
+                <div key={ex.id} className="card flex items-center justify-between gap-3 animate-fade-in">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium truncate">{ex.name}</p>
                   {(muscleName || equipName || diff) && (
@@ -264,7 +274,8 @@ export default function AddExercise() {
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
       {/* Infinite scroll sentinel — in page flow, triggers when scrolled into view */}
       <div ref={sentinelRef} className="flex items-center justify-center py-4">
