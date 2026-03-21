@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2, ArrowLeft } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -500,6 +500,21 @@ export default function WorkoutActive() {
     }
   }, [activeSession?.name, editingName]);
 
+  // ⚡ Bolt: Optimize rendering loops by replacing nested array .find() operations
+  // with useMemo-wrapped Map lookups for O(1) complexity.
+  // This reduces complexity from O(N * (C+E)) to O(N + C + E), speeding up list rendering.
+  const categoryMap = useMemo(() => {
+    const map = new Map();
+    exCategories?.forEach(c => map.set(String(c.id), c));
+    return map;
+  }, [exCategories]);
+
+  const equipmentMap = useMemo(() => {
+    const map = new Map();
+    exEquipment?.forEach(e => map.set(String(e.id), e));
+    return map;
+  }, [exEquipment]);
+
   // Fetch categories + equipment once when add-exercise sheet opens (cached 30 min)
   useEffect(() => {
     if (!showAddExercise) return;
@@ -845,8 +860,9 @@ export default function WorkoutActive() {
               <div className="space-y-2">
                 {exResults.map((ex) => {
                   const selected = selectedExIds.has(ex.id);
-                  const muscle = exCategories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-                  const equip = exEquipment.find((e) => String(e.id) === String(ex.equipmentId));
+                  // ⚡ Bolt: Use O(1) Map lookups instead of O(N) array .find() calls
+                  const muscle = categoryMap.get(String(ex.primaryMuscleId));
+                  const equip = equipmentMap.get(String(ex.equipmentId));
                   const muscleName = muscle?.shortName || muscle?.displayName || '';
                   const equipName = equip?.displayName || equip?.name || '';
                   return (
