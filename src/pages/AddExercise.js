@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Plus, Check, Loader2 } from 'lucide-react';
 import { useRoutineStore } from '../stores/routineStore';
@@ -31,6 +31,19 @@ export default function AddExercise() {
   const [customInstructions, setCustomInstructions] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+
+  // ⚡ Bolt: O(1) lookup maps to prevent O(N*M) nested array.find() during render loop
+  const categoryMap = useMemo(() => {
+    const map = new Map();
+    categories?.forEach((c) => map.set(String(c.id), c));
+    return map;
+  }, [categories]);
+
+  const equipmentMap = useMemo(() => {
+    const map = new Map();
+    equipment?.forEach((e) => map.set(String(e.id), e));
+    return map;
+  }, [equipment]);
 
   const sentinelRef = useRef(null);
 
@@ -225,8 +238,8 @@ export default function AddExercise() {
           {exercises.map((ex) => {
             const added = existingNames.has(ex.name);
             const isAdding = addingId === ex.id;
-            const muscle = categories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-            const equip  = equipment.find((e) => String(e.id) === String(ex.equipmentId));
+            const muscle = categoryMap.get(String(ex.primaryMuscleId));
+            const equip  = equipmentMap.get(String(ex.equipmentId));
             const muscleName = muscle?.shortName || muscle?.displayName || '';
             const equipName  = equip?.displayName  || equip?.name        || '';
             const diff = ex.difficulty
