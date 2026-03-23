@@ -1,0 +1,3 @@
+## 2024-05-14 - Map vs Array Find Optimization
+**Learning:** Nested `array.find()` inside `.map()` rendering loops can cause significant performance bottlenecks as the array sizes grow (O(N*M) complexity). In components rendering long lists (e.g. `WorkoutActive.js`, `AddExercise.js`), performing `.find()` on categories or equipment arrays on every map iteration is inefficient.
+**Action:** Convert the arrays to a `Map` wrapped in `useMemo` for O(1) lookup, e.g. `const catMap = useMemo(() => new Map((exCategories || []).map(c => [String(c.id), c])), [exCategories]);`. Ensure to use optional chaining during mapping to handle initial unpopulated states gracefully.
