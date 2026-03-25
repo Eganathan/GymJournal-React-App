@@ -1,0 +1,4 @@
+## 2024-05-18 - Timer-Driven State Forcing Re-renders
+
+**Learning:** When a parent component (e.g., `WorkoutActive.js`) has timer-driven state updating frequently (like an elapsed timer ticking every second), it forces re-renders down the tree. If unmemoized `.reduce()` or `.find()` calculations are placed directly in the render path, they will execute on every single tick, degrading performance noticeably over time, particularly with nested arrays or long lists.
+**Action:** Always memoize derived computations like estimated maximums (`bestOrm`) using `useMemo` when working inside components updated by a high-frequency timer. Replace O(N) `.find()` operations in `.map()` render loops with O(1) `useMemo`-wrapped `Map` lookups to handle rapid re-renders smoothly.
