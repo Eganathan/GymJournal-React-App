@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2, ArrowLeft } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -165,6 +165,17 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
     await deleteSet(sessionId, setId);
   };
 
+  // Memoize best 1RM calculation to avoid reducing the PBs array on every timer tick re-render
+  // Best estimated 1RM across all rep-range PBs
+  const bestOrm = useMemo(() => {
+    return pbs.reduce((best, p) => {
+      const w = parseFloat(p.actualWeightKg) || 0;
+      const r = parseInt(p.actualReps) || 0;
+      const est = r === 1 ? w : Math.round(w * (1 + r / 30) * 10) / 10;
+      return est > best ? est : best;
+    }, 0);
+  }, [pbs]);
+
   return (
     <div className="card mb-4 animate-fade-in">
       <div className="flex items-start justify-between mb-3">
@@ -185,33 +196,24 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
             </p>
           )}
         </div>
-        {pbs.length > 0 && (() => {
-          // Best estimated 1RM across all rep-range PBs
-          const bestOrm = pbs.reduce((best, p) => {
-            const w = parseFloat(p.actualWeightKg) || 0;
-            const r = parseInt(p.actualReps) || 0;
-            const est = r === 1 ? w : Math.round(w * (1 + r / 30) * 10) / 10;
-            return est > best ? est : best;
-          }, 0);
-          return (
-            <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
-              {pbs.slice(0, 2).map((p, i) => {
-                const w = parseFloat(p.actualWeightKg) || 0;
-                const r = parseInt(p.actualReps) || 0;
-                return (
-                  <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
-                    <Trophy size={10} /> PB: {w}kg × {r}r
-                  </span>
-                );
-              })}
-              {bestOrm > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-raised)', color: 'var(--text-dim)' }}>
-                  ~{bestOrm}kg 1RM
+        {pbs.length > 0 && (
+          <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+            {pbs.slice(0, 2).map((p, i) => {
+              const w = parseFloat(p.actualWeightKg) || 0;
+              const r = parseInt(p.actualReps) || 0;
+              return (
+                <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
+                  <Trophy size={10} /> PB: {w}kg × {r}r
                 </span>
-              )}
-            </div>
-          );
-        })()}
+              );
+            })}
+            {bestOrm > 0 && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-raised)', color: 'var(--text-dim)' }}>
+                ~{bestOrm}kg 1RM
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -478,6 +480,24 @@ export default function WorkoutActive() {
   const [exEquipment, setExEquipment] = useState([]);
   const [selectedExIds, setSelectedExIds] = useState(new Set());
   const exSentinelRef = useRef(null);
+
+  // Memoize categories and equipment into Maps for O(1) lookups during the exercise list render loop
+  // This avoids O(N*M) performance degradation when searching large arrays inside .map()
+  const categoriesMap = useMemo(() => {
+    const map = new Map();
+    exCategories?.forEach((cat) => {
+      map.set(String(cat.id), cat);
+    });
+    return map;
+  }, [exCategories]);
+
+  const equipmentMap = useMemo(() => {
+    const map = new Map();
+    exEquipment?.forEach((eq) => {
+      map.set(String(eq.id), eq);
+    });
+    return map;
+  }, [exEquipment]);
 
   useEffect(() => {
     fetchSession(id);
@@ -845,8 +865,8 @@ export default function WorkoutActive() {
               <div className="space-y-2">
                 {exResults.map((ex) => {
                   const selected = selectedExIds.has(ex.id);
-                  const muscle = exCategories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-                  const equip = exEquipment.find((e) => String(e.id) === String(ex.equipmentId));
+                  const muscle = categoriesMap.get(String(ex.primaryMuscleId));
+                  const equip = equipmentMap.get(String(ex.equipmentId));
                   const muscleName = muscle?.shortName || muscle?.displayName || '';
                   const equipName = equip?.displayName || equip?.name || '';
                   return (
