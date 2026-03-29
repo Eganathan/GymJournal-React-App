@@ -1,0 +1,3 @@
+## 2026-03-29 - [Optimized Timer-Driven Renders in WorkoutActive]
+**Learning:** In components with frequent timer-driven re-renders (like updating an active timer elapsed state every second), derived computations like `bestOrm` or iterating through arrays with `find` inside rendering loops become highly problematic for performance. `useMemo` is absolutely critical here to prevent redundant logic running on every tick.
+**Action:** Always wrap heavy computations like `.reduce()` in `useMemo` when they live in components that update frequently, and replace nested `O(N)` `.find()` array operations with memoized `O(1)` Map lookups to improve render speed during list mapping.
