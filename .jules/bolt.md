@@ -1,0 +1,3 @@
+## 2026-03-31 - [Timer Re-renders Triggering Derived State and Array Traversals]
+**Learning:** In components with frequent timer-driven re-renders (like 1-second interval timers in `WorkoutActive`), any derived state computations (like `bestOrm` using `.reduce` on `pbs` array) and expensive list operations (like nested `.find` calls on `exCategories` and `exEquipment` inside `exResults.map`) inside the render cycle become major performance bottlenecks because they execute every second.
+**Action:** Always wrap expensive or derived computations in `useMemo` when working within a timer context. Use `useMemo` to convert reference arrays into index-able `Map` objects (O(1) lookups) for list processing instead of using nested `.find()` iterations (O(n²)).
