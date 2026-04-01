@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2, ArrowLeft } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -501,6 +501,19 @@ export default function WorkoutActive() {
   }, [activeSession?.name, editingName]);
 
   // Fetch categories + equipment once when add-exercise sheet opens (cached 30 min)
+  // ⚡ Bolt: Memoize categories and equipment for O(1) lookups during render
+  const exCategoryMap = useMemo(() => {
+    const map = new Map();
+    exCategories?.forEach((c) => map.set(String(c.id), c));
+    return map;
+  }, [exCategories]);
+
+  const exEquipmentMap = useMemo(() => {
+    const map = new Map();
+    exEquipment?.forEach((e) => map.set(String(e.id), e));
+    return map;
+  }, [exEquipment]);
+
   useEffect(() => {
     if (!showAddExercise) return;
     const cachedCats = getCachedCategories();
@@ -845,8 +858,9 @@ export default function WorkoutActive() {
               <div className="space-y-2">
                 {exResults.map((ex) => {
                   const selected = selectedExIds.has(ex.id);
-                  const muscle = exCategories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-                  const equip = exEquipment.find((e) => String(e.id) === String(ex.equipmentId));
+                  // ⚡ Bolt: O(1) hash map lookup replaces O(n) array find in render loop
+                  const muscle = exCategoryMap.get(String(ex.primaryMuscleId));
+                  const equip = exEquipmentMap.get(String(ex.equipmentId));
                   const muscleName = muscle?.shortName || muscle?.displayName || '';
                   const equipName = equip?.displayName || equip?.name || '';
                   return (
