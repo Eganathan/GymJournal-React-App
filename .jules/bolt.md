@@ -1,0 +1,3 @@
+## 2024-04-16 - Parallelizing UI State Modifying Async Methods
+**Learning:** When parallelizing multiple API requests triggered sequentially in a UI loop (like batch updates), some underlying store methods fetch fresh state after each successful request. Running them with `Promise.all` causes redundant and potentially race-condition-inducing concurrent snapshot refreshes.
+**Action:** Always inspect the underlying store or API method before wrapping it in `Promise.all`. Implement skipping mechanisms (like `{ skipSnapshotRefresh: true }`) for intermediate calls, and trigger a single state refresh explicitly after the `Promise.all` batch completes.
