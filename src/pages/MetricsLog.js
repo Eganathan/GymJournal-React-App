@@ -9,12 +9,14 @@ import BottomSheet from '../components/BottomSheet';
 export default function MetricsLog() {
   const navigate = useNavigate();
   const logEntries = useMetricsStore((s) => s.logEntries);
+  // eslint-disable-next-line no-unused-vars
   const updateEntry = useMetricsStore((s) => s.updateEntry);
   const customDefs = useMetricsStore((s) => s.customDefs);
   const fetchCustomDefs = useMetricsStore((s) => s.fetchCustomDefs);
   const createCustomDef = useMetricsStore((s) => s.createCustomDef);
   const dayEntries = useMetricsStore((s) => s.dayEntries);
   const fetchDayEntries = useMetricsStore((s) => s.fetchDayEntries);
+  // eslint-disable-next-line no-unused-vars
   const isLoading = useMetricsStore((s) => s.isLoading);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
