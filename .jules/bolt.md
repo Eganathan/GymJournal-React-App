@@ -1,0 +1,3 @@
+## 2025-03-09 - Memoizing complex reducers and array lookups
+**Learning:** In components with frequent, timer-driven re-renders (like `WorkoutActive.js` updating elapsed time every second), derived computations such as `Array.reduce` and nested `Array.find` inside `.map` loops cause massive performance degradation due to O(N²) time complexity per frame. Even seemingly simple inline array lookups need defensive `useMemo` caching.
+**Action:** Always extract complex calculations from IIFEs in JSX and memoize them with `useMemo`. Replace nested array `.find()` operations inside map loops with `useMemo`-wrapped `Map` instances for O(1) lookups, using defensive optional chaining (`?.forEach(...)`) to prevent crashes during initial render when variables might be undefined.
