@@ -1,0 +1,3 @@
+## 2024-04-10 - Parallelize sequential metric state updates
+**Learning:** In the `MetricsLog` component, saving a batch of updates used sequential `await` loops for `logEntries` and `updateEntry`. Each individual update automatically invalidated and re-fetched the global store snapshot, creating an N+1 problem and blocking the UI with repetitive I/O.
+**Action:** Always batch dependent store updates that hit the network by passing a `skipSnapshotRefresh: true` flag to skip the automatic invalidate-and-fetch cycle. Execute the modified API calls concurrently with `Promise.all()`, and perform a single cache invalidation and snapshot fetch upon complete resolution.
