@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2, ArrowLeft } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -165,6 +165,17 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
     await deleteSet(sessionId, setId);
   };
 
+  // Best estimated 1RM across all rep-range PBs, memoized to avoid redundant calculation
+  const bestOrm = useMemo(() => {
+    if (!pbs || pbs.length === 0) return 0;
+    return pbs.reduce((best, p) => {
+      const w = parseFloat(p.actualWeightKg) || 0;
+      const r = parseInt(p.actualReps) || 0;
+      const est = r === 1 ? w : Math.round(w * (1 + r / 30) * 10) / 10;
+      return est > best ? est : best;
+    }, 0);
+  }, [pbs]);
+
   return (
     <div className="card mb-4 animate-fade-in">
       <div className="flex items-start justify-between mb-3">
@@ -185,15 +196,7 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
             </p>
           )}
         </div>
-        {pbs.length > 0 && (() => {
-          // Best estimated 1RM across all rep-range PBs
-          const bestOrm = pbs.reduce((best, p) => {
-            const w = parseFloat(p.actualWeightKg) || 0;
-            const r = parseInt(p.actualReps) || 0;
-            const est = r === 1 ? w : Math.round(w * (1 + r / 30) * 10) / 10;
-            return est > best ? est : best;
-          }, 0);
-          return (
+        {pbs.length > 0 && (
             <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
               {pbs.slice(0, 2).map((p, i) => {
                 const w = parseFloat(p.actualWeightKg) || 0;
@@ -210,8 +213,7 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
                 </span>
               )}
             </div>
-          );
-        })()}
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -622,6 +624,19 @@ export default function WorkoutActive() {
     setEditingName(false);
   };
 
+  // O(1) Lookups for categories and equipment, memoized
+  const categoryMap = useMemo(() => {
+    const map = new Map();
+    exCategories?.forEach((c) => map.set(String(c.id), c));
+    return map;
+  }, [exCategories]);
+
+  const equipmentMap = useMemo(() => {
+    const map = new Map();
+    exEquipment?.forEach((e) => map.set(String(e.id), e));
+    return map;
+  }, [exEquipment]);
+
   if (isLoading && !activeSession) {
     return (
       <div className="page flex items-center justify-center py-20">
@@ -845,8 +860,8 @@ export default function WorkoutActive() {
               <div className="space-y-2">
                 {exResults.map((ex) => {
                   const selected = selectedExIds.has(ex.id);
-                  const muscle = exCategories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-                  const equip = exEquipment.find((e) => String(e.id) === String(ex.equipmentId));
+                  const muscle = categoryMap.get(String(ex.primaryMuscleId));
+                  const equip = equipmentMap.get(String(ex.equipmentId));
                   const muscleName = muscle?.shortName || muscle?.displayName || '';
                   const equipName = equip?.displayName || equip?.name || '';
                   return (

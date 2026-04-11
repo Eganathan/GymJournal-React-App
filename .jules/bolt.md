@@ -1,0 +1,3 @@
+## 2025-03-10 - React Rules of Hooks and Early Returns
+**Learning:** Moving expensive operations out of JSX and into `useMemo` is a good practice, but if those `useMemo` calls are placed *after* early returns (e.g., `if (isLoading && !activeSession) return ...`), it violates the Rules of Hooks and causes the build to fail, especially since CRA sets warnings to errors in CI mode.
+**Action:** Always place `useMemo`, `useCallback`, and other React Hooks at the very top level of the component function, *before* any conditional logic or early return statements, to guarantee they are called in the exact same order on every render.
