@@ -1,0 +1,3 @@
+## 2023-10-24 - Batch API operations with Promise.all
+**Learning:** In scenarios involving logging metrics with multiple values, making concurrent calls utilizing `Promise.all` can drastically improve performance compared to individual awaited updates. Moreover, when methods internal to state stores execute refetches upon update/create completion, executing operations concurrently can lead to redundant network requests if these refetches aren't suspended during the parallelized batch operation.
+**Action:** Always batch related concurrent API operations with `Promise.all` while instructing the underlying methods or stores to skip internal data refetches, opting instead to trigger a singular refresh manually after the operations have resolved completely.
