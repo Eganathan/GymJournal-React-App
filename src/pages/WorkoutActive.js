@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2, ArrowLeft } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -519,6 +519,19 @@ export default function WorkoutActive() {
     }).catch(() => {});
   }, [showAddExercise]);
 
+  // Memoize categories and equipment for O(1) lookup
+  const categoryMap = useMemo(() => {
+    const map = new Map();
+    exCategories?.forEach((c) => map.set(String(c.id), c));
+    return map;
+  }, [exCategories]);
+
+  const equipmentMap = useMemo(() => {
+    const map = new Map();
+    exEquipment?.forEach((e) => map.set(String(e.id), e));
+    return map;
+  }, [exEquipment]);
+
   // Exercise search (with category filter + pagination)
   const searchExercises = useCallback(async (q, categoryId, pageNum = 1, append = false) => {
     if (pageNum === 1) setExLoading(true);
@@ -845,8 +858,8 @@ export default function WorkoutActive() {
               <div className="space-y-2">
                 {exResults.map((ex) => {
                   const selected = selectedExIds.has(ex.id);
-                  const muscle = exCategories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-                  const equip = exEquipment.find((e) => String(e.id) === String(ex.equipmentId));
+                  const muscle = categoryMap.get(String(ex.primaryMuscleId));
+                  const equip = equipmentMap.get(String(ex.equipmentId));
                   const muscleName = muscle?.shortName || muscle?.displayName || '';
                   const equipName = equip?.displayName || equip?.name || '';
                   return (
