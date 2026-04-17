@@ -1,0 +1,3 @@
+## 2024-04-16 - O(1) Lookups in React Loops
+**Learning:** In React components that render large lists dynamically, nested array `.find()` lookups inside an array `.map()` render function create an O(N*M) performance bottleneck, especially noticeably when the reference arrays (like categories and equipment) are large. This pattern should be avoided.
+**Action:** Always memoize reference data structures into O(1) Map objects utilizing React's `useMemo` hooks *outside* the render map loop, and then perform the lookup with `.get()` inside the loop for an O(N) complexity reduction. Be sure to account for potential null/undefined values by using optional chaining (`?.forEach(...)`) during Map initialization to prevent crashes on first render.
