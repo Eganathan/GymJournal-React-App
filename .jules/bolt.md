@@ -1,0 +1,3 @@
+## 2025-03-09 - [Metrics Update Performance Optimization]
+**Learning:** In `metricsStore.js`, `logEntries` and `updateEntry` each automatically invalidate the snapshot and trigger `fetchSnapshot(true)`. When `MetricsLog.js` was saving a form with multiple metrics, this resulted in O(N) concurrent `fetchSnapshot` network requests to the backend for N metric updates, creating a performance bottleneck and unnecessary API load.
+**Action:** Used `Promise.all` in `MetricsLog.js` to batch concurrent updates, and added a `skipSnapshotRefresh` option to store methods. This allows bypassing the automatic fetch during batch operations. Manually invalidate and refresh the snapshot exactly once (`O(1)`) after the `Promise.all` completes.
