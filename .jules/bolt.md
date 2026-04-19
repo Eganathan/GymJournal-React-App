@@ -1,0 +1,3 @@
+## 2024-04-19 - Optimizing Component with Active Timers
+**Learning:** Components that use `setInterval` to drive re-renders (like elapsed workout timers) are exceptionally vulnerable to poorly optimized render logic. Calculations that seem "cheap" (like `.reduce` on an array of 5-10 items or nested `.find` on reference data arrays) rapidly stack up CPU time when running every 1000ms. Inline IIFEs evaluating every render block garbage collection.
+**Action:** Extract all derived list calculations in timer-driven components out of the JSX render body and into top-level `useMemo` hooks. Always convert lookup arrays to Maps via `useMemo` when rendering long, dynamically filtered lists.
