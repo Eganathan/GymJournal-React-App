@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, ChevronDown, ChevronUp, FlaskConical, Plus, Loader2 } from 'lucide-react';
 import { useMetricsStore } from '../stores/metricsStore';
@@ -15,6 +15,7 @@ export default function MetricsLog() {
   const createCustomDef = useMetricsStore((s) => s.createCustomDef);
   const dayEntries = useMetricsStore((s) => s.dayEntries);
   const fetchDayEntries = useMetricsStore((s) => s.fetchDayEntries);
+  // eslint-disable-next-line no-unused-vars
   const isLoading = useMetricsStore((s) => s.isLoading);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -24,6 +25,14 @@ export default function MetricsLog() {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showCustomSheet, setShowCustomSheet] = useState(false);
+
+  // Bolt Optimization: Create a Map for O(1) lookups inside the Object.entries loop below,
+  // preventing repeated O(N) Array.find calls.
+  const customDefsMap = useMemo(() => {
+    const map = new Map();
+    customDefs?.forEach((d) => map.set(d.key, d));
+    return map;
+  }, [customDefs]);
   const [customLabel, setCustomLabel] = useState('');
   const [customUnit, setCustomUnit] = useState('');
 
@@ -76,7 +85,7 @@ export default function MetricsLog() {
     Object.entries(values).forEach(([type, val]) => {
       if (val === '' || val == null || isNaN(parseFloat(val))) return;
       const meta = METRIC_TYPES[type];
-      const customDef = customDefs.find((d) => d.key === type);
+      const customDef = customDefsMap.get(type);
       const unit = meta?.unit || customDef?.unit || '';
       const existing = existingByType[type];
 
