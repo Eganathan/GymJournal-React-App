@@ -1,0 +1,4 @@
+
+## 2025-04-21 - [Zustand API Batching in MetricsStore]
+**Learning:** Sequential updates inside component logic can trigger multiple redundant API calls when modifying a Zustand store that fetches snapshots per action. Here, the N+1 problem occurred because `logEntries` and `updateEntry` both triggered `fetchSnapshot(true)` locally after resolving their backend operation. A batch of 10 updates would sequentially hit the backend AND refetch snapshot 10 times consecutively instead of concurrently making calls and updating the snapshot once.
+**Action:** When a store method encapsulates both local state updates and subsequent full re-fetches (`fetchSnapshot`), allow the re-fetches to be explicitly bypassed using `opts.skipSnapshotRefresh: true`. Collect all store actions in `Promise.all` inside the component to reduce HTTP latency from O(N) to O(1), then trigger a single manual `refreshSnapshot()` once all promises resolve.
