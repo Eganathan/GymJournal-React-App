@@ -1,0 +1,3 @@
+## 2025-03-09 - [Batching Metrics API Requests]
+**Learning:** Using sequential `await` calls in a loop for saving multiple metrics requests causes `O(N)` scaling of the total I/O time relative to the number of requests, and because `logEntries` and `updateEntry` naturally invalidate and refresh snapshot states upon success, sequential execution causes redundant, concurrent network requests to the backend for re-fetching snapshots multiple times.
+**Action:** When updating or creating multiple items, group the promises and execute them using `Promise.all` with a configuration option (e.g., `skipSnapshotRefresh: true`) to bypass redundant state refreshes until all promises resolve, at which point run a single state refresh.
