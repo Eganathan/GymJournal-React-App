@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback , useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2, ArrowLeft } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -476,6 +476,19 @@ export default function WorkoutActive() {
   const [exHasMore, setExHasMore] = useState(false);
   const [exLoadingMore, setExLoadingMore] = useState(false);
   const [exEquipment, setExEquipment] = useState([]);
+
+  const exCategoryMap = useMemo(() => {
+    const map = new Map();
+    exCategories?.forEach((c) => map.set(String(c.id), c));
+    return map;
+  }, [exCategories]);
+
+  const exEquipmentMap = useMemo(() => {
+    const map = new Map();
+    exEquipment?.forEach((e) => map.set(String(e.id), e));
+    return map;
+  }, [exEquipment]);
+
   const [selectedExIds, setSelectedExIds] = useState(new Set());
   const exSentinelRef = useRef(null);
 
@@ -845,8 +858,8 @@ export default function WorkoutActive() {
               <div className="space-y-2">
                 {exResults.map((ex) => {
                   const selected = selectedExIds.has(ex.id);
-                  const muscle = exCategories.find((c) => String(c.id) === String(ex.primaryMuscleId));
-                  const equip = exEquipment.find((e) => String(e.id) === String(ex.equipmentId));
+                  const muscle = exCategoryMap.get(String(ex.primaryMuscleId));
+                  const equip = exEquipmentMap.get(String(ex.equipmentId));
                   const muscleName = muscle?.shortName || muscle?.displayName || '';
                   const equipName = equip?.displayName || equip?.name || '';
                   return (
