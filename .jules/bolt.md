@@ -1,0 +1,3 @@
+## 2023-10-27 - [Optimizing Render Loops with O(1) Lookups]
+**Learning:** Nested array `.find()` calls inside rendering loops (like React's `.map()`) can cause O(n*m) complexity bottlenecks during render, especially for large lists or frequent re-renders. Zustand's unused variable selectors can also cause unnecessary re-renders if left without an ESLint disable comment.
+**Action:** Use `useMemo` to construct O(1) `Map` objects from reference arrays (like categories or equipment) and use `Map.get()` inside the render loop to reduce complexity to O(n+m). When encountering ESLint errors for Zustand selectors that are necessary for re-rendering, use `// eslint-disable-next-line no-unused-vars` instead of deleting them.
