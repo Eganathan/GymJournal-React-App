@@ -1,0 +1,3 @@
+## 2024-05-18 - Replacing Nested Array `.find()` Lookups in Render Loops
+**Learning:** In heavily utilized search components (`AddExercise.js`, `WorkoutActive.js`), rendering lists of exercises involved nested O(N) `.find()` calls to map category and equipment IDs to their respective display objects. This led to an O(N*M) rendering complexity.
+**Action:** Always memoize associative arrays (like categories and equipment) into `Map` structures using `useMemo` with defensive optional chaining (`categories?.forEach()`). Then, retrieve items inside the render loop using `map.get()`, reducing the time complexity to O(N + M) and eliminating redundant iteration.
