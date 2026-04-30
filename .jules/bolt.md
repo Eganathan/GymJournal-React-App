@@ -1,0 +1,3 @@
+## 2024-05-18 - [O(n) find array lookups to O(1) map lookups during render]
+**Learning:** Nested array `.find()` operations inside a component's render loop (`map` over results) can cause significant performance bottlenecks when rendering large lists (like exercise lists), resulting in O(N*M) complexity.
+**Action:** Replace sequential array `.find()` calls inside loops with O(1) Map lookups. Wrap the Map creation in `useMemo` so it's calculated once per category/equipment update instead of every render or keystroke. Always use defensive optional chaining (`?.forEach(...)`) to prevent crashes when source arrays are missing.
