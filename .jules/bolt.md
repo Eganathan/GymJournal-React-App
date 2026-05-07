@@ -1,0 +1,3 @@
+## 2025-05-06 - Batching parallel API requests
+**Learning:** Sequential `await` calls inside loops for API updates (e.g., `updateEntry` or `logEntries`) can unnecessarily block rendering and increase I/O time to O(N). Additionally, updating state automatically in a loop can cause redundant data fetches if the state relies on invalidation patterns (like fetching a new snapshot for each update).
+**Action:** Use `Promise.all` to parallelize multiple promises. Pass an option `{ skipSnapshotRefresh: true }` to disable automatic snapshot refreshes inside the store methods, then manually refresh the snapshot once after the `Promise.all` resolves.
