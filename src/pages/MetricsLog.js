@@ -10,11 +10,13 @@ export default function MetricsLog() {
   const navigate = useNavigate();
   const logEntries = useMetricsStore((s) => s.logEntries);
   const updateEntry = useMetricsStore((s) => s.updateEntry);
+  const refreshSnapshot = useMetricsStore((s) => s.refreshSnapshot);
   const customDefs = useMetricsStore((s) => s.customDefs);
   const fetchCustomDefs = useMetricsStore((s) => s.fetchCustomDefs);
   const createCustomDef = useMetricsStore((s) => s.createCustomDef);
   const dayEntries = useMetricsStore((s) => s.dayEntries);
   const fetchDayEntries = useMetricsStore((s) => s.fetchDayEntries);
+  // eslint-disable-next-line no-unused-vars
   const isLoading = useMetricsStore((s) => s.isLoading);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -94,14 +96,20 @@ export default function MetricsLog() {
 
     setSaving(true);
     try {
-      // Batch POST new entries
+      // ⚡ Bolt: Performance Optimization
+      // Replace sequential await calls in loop with Promise.all for batch API operations
+      // to reduce total I/O time from O(N) to O(1) relative to request count.
+      // Pass { skipSnapshotRefresh: true } to prevent redundant backend snapshot fetches.
+      const promises = [];
       if (newEntries.length > 0) {
-        await logEntries(newEntries);
+        promises.push(logEntries(newEntries, { skipSnapshotRefresh: true }));
       }
-      // PUT updates
       for (const u of updates) {
-        await updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate });
+        promises.push(updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate }, { skipSnapshotRefresh: true }));
       }
+      await Promise.all(promises);
+      await refreshSnapshot();
+
       setSaved(true);
       setTimeout(() => navigate('/metrics'), 800);
     } catch {
