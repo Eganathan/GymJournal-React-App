@@ -1,0 +1,3 @@
+## 2025-03-09 - MetricsLog Sequential Awaits Optimization
+**Learning:** In `metricsStore.js`, `updateEntry` and `logEntries` were designed to automatically invalidate and refresh the snapshot after every single mutation. When calling these methods sequentially in a loop (like saving multiple metrics in `MetricsLog.js`), this caused a cascade of redundant state updates and network fetches.
+**Action:** Always inspect the side effects of batch-called store mutations. If mutations automatically refresh global state or trigger network requests, parameterize them (e.g., with `options = { skipSnapshotRefresh: true }`) to allow the caller to delay the refresh until the entire batch (via `Promise.all`) has completed.
