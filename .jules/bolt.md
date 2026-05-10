@@ -1,0 +1,3 @@
+## 2024-05-10 - Parallelize Multiple Metrics Saving API Calls
+**Learning:** Found sequential API state-refreshing loops. Sequential API requests in loops cause an N+1 problem, where N is the number of individual endpoints called. Also, each API request triggers a separate refresh to the backend if the underlying methods fetch the full state on completion.
+**Action:** When saving multiple entries that execute individual updates, utilize `Promise.all` to parallelize them. Furthermore, explicitly skip individual snapshot refreshes inside the update functions using an optional `{ skipSnapshotRefresh: true }` parameter to avoid triggering multiple concurrent full data fetching. Execute a single manual state refresh explicitly awaited after `Promise.all` completes.
