@@ -1,0 +1,3 @@
+## 2024-05-12 - Prevent Recalculation on High-Frequency Timer Re-renders
+**Learning:** Components containing elapsed timers (like `WorkoutActive`) will trigger a full re-render on every tick (e.g., every second). Inline array operations or nested IIFE calculations (like `reduce` to calculate 1RM from PBs) placed inside JSX will execute redundantly on each of these frequent render cycles.
+**Action:** Always extract derived state calculations (e.g., finding the best 1RM from an array of PBs) out of the JSX render cycle and wrap them in a `useMemo` hook, especially in components subjected to high-frequency state updates like interval timers.
