@@ -1,0 +1,3 @@
+## 2025-03-09 - [Metrics Logging API Calls]
+**Learning:** Sequential updates (N+1 updates) using `await` inside a loop can be slow. Parallelizing independent API requests via `Promise.all` improves overall performance from O(N) wait time to O(1) wait time relative to request count. Additionally, multiple API updates triggering independent cache invalidation logic can cause unnecessary cache refreshes. Using an options object to bypass individual cache refresh hooks and manually refreshing the cache once after the batch finishes is more efficient.
+**Action:** When updating multiple separate API items concurrently, use `Promise.all` and ensure cache logic is structured to refresh once after all update promises resolve, rather than refreshing per individual update.
