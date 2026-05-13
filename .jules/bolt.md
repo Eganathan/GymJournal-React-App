@@ -1,0 +1,3 @@
+## 2025-03-09 - [Performance: Memoize array to Map for O(1) lookups]
+**Learning:** In components rendering lists of data (like exercises) that need to join with reference data (like categories and equipment), using `.find()` inside `.map()` creates an O(N*M) performance bottleneck. In components with frequent, timer-driven re-renders like `WorkoutActive.js`, this degrades UI performance.
+**Action:** Always pre-compute a `Map` using `useMemo` for reference data before the render loop, utilizing defensive optional chaining (`array?.forEach(...)`) to ensure O(1) lookups and prevent crashes on initial render.
