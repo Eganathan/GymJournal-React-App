@@ -1,0 +1,3 @@
+## 2024-05-19 - [Batching API requests with Zustand]
+**Learning:** In applications using Zustand and React with API integrations, sequential `await` calls that trigger global state refreshes (e.g., `fetchSnapshot(true)`) cause multiple redundant network requests (N+1 problem) and excessive re-renders during batch updates.
+**Action:** When performing multiple related mutations, add an option (like `skipSnapshotRefresh: true`) to bypass automatic cache invalidation in individual store actions. Group the operations using `Promise.all` in the component, and then invoke a dedicated manual refresh function (`refreshSnapshot()`) exactly once after all promises resolve.
