@@ -1,0 +1,3 @@
+## 2024-05-17 - Parallelizing State Mutations in Zustand Store
+**Learning:** In applications using Zustand and a REST backend, sequential state updates (like `updateEntry`) where each method explicitly forces a state refresh (e.g., `fetchSnapshot(true)`) leads to a classic N+1 backend request waterfall on bulk updates. This is particularly problematic in forms like `MetricsLog.js`.
+**Action:** Always implement a `skipRefresh` flag or equivalent mechanism in store mutation methods. For bulk operations, batch the mutations using `Promise.all()`, pass the `skipRefresh` flag, and then trigger a single, explicit refresh method (e.g., `refreshSnapshot()`) at the end of the batch operation to eliminate redundant I/O and re-renders.
