@@ -10,6 +10,7 @@ export default function MetricsLog() {
   const navigate = useNavigate();
   const logEntries = useMetricsStore((s) => s.logEntries);
   const updateEntry = useMetricsStore((s) => s.updateEntry);
+  const refreshSnapshot = useMetricsStore((s) => s.refreshSnapshot);
   const customDefs = useMetricsStore((s) => s.customDefs);
   const fetchCustomDefs = useMetricsStore((s) => s.fetchCustomDefs);
   const createCustomDef = useMetricsStore((s) => s.createCustomDef);
@@ -62,7 +63,8 @@ export default function MetricsLog() {
     try {
       const fetched = await metricsApi.getEntries(date);
       freshEntries = Array.isArray(fetched) ? fetched : [];
-    } catch {
+    } catch (err) {
+      console.error('Context:', err);
       // Fall back to cached dayEntries
     }
 
@@ -96,15 +98,24 @@ export default function MetricsLog() {
     try {
       // Batch POST new entries
       if (newEntries.length > 0) {
-        await logEntries(newEntries);
+        await logEntries(newEntries, { skipSnapshotRefresh: true });
       }
-      // PUT updates
-      for (const u of updates) {
-        await updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate });
+      // Batch PUT updates concurrently instead of sequentially
+      if (updates.length > 0) {
+        await Promise.all(
+          updates.map((u) => updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate }, { skipSnapshotRefresh: true }))
+        );
       }
+
+      // Refresh snapshot once after all updates
+      if (newEntries.length > 0 || updates.length > 0) {
+        await refreshSnapshot();
+      }
+
       setSaved(true);
       setTimeout(() => navigate('/metrics'), 800);
-    } catch {
+    } catch (err) {
+      console.error('Context:', err);
       // error is set in the store
     } finally {
       setSaving(false);
