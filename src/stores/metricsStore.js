@@ -114,13 +114,21 @@ export const useMetricsStore = create((set, get) => ({
     }
   },
 
+  // ── Snapshot Refresh ─────────────────────────────────────
+  refreshSnapshot: async () => {
+    set({ _lastFetchedSnapshot: 0 });
+    await get().fetchSnapshot(true);
+  },
+
   // ── Log / Update / Delete ────────────────────────────────
-  logEntries: async (entries) => {
+  logEntries: async (entries, options = {}) => {
     set({ isLoading: true, error: null });
     try {
       await metricsApi.logEntries(entries);
-      set({ _lastFetchedSnapshot: 0 }); // invalidate snapshot
-      await get().fetchSnapshot(true);
+      if (!options.skipSnapshotRefresh) {
+        set({ _lastFetchedSnapshot: 0 }); // invalidate snapshot
+        await get().fetchSnapshot(true);
+      }
       set({ isLoading: false });
     } catch (err) {
       set({ error: err.message, isLoading: false });
@@ -128,22 +136,26 @@ export const useMetricsStore = create((set, get) => ({
     }
   },
 
-  updateEntry: async (id, updates) => {
+  updateEntry: async (id, updates, options = {}) => {
     try {
       await metricsApi.updateEntry(id, updates);
-      set({ _lastFetchedSnapshot: 0 }); // invalidate
-      await get().fetchSnapshot(true);
+      if (!options.skipSnapshotRefresh) {
+        set({ _lastFetchedSnapshot: 0 }); // invalidate
+        await get().fetchSnapshot(true);
+      }
     } catch (err) {
       set({ error: err.message });
       throw err;
     }
   },
 
-  deleteEntry: async (id) => {
+  deleteEntry: async (id, options = {}) => {
     try {
       await metricsApi.deleteEntry(id);
-      set({ _lastFetchedSnapshot: 0 }); // invalidate
-      await get().fetchSnapshot(true);
+      if (!options.skipSnapshotRefresh) {
+        set({ _lastFetchedSnapshot: 0 }); // invalidate
+        await get().fetchSnapshot(true);
+      }
     } catch (err) {
       set({ error: err.message });
     }
