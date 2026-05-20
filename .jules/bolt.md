@@ -1,0 +1,3 @@
+## 2025-03-09 - Memoizing Derived Computations in Timer-Driven React Components
+**Learning:** In components with frequent, timer-driven re-renders (like `WorkoutActive.js` updating elapsed time every second), derived computations inside child components (like calculating best 1RM from PBs in `ExerciseGroup`) will be re-executed on every single timer tick if left unmemoized. This causes unnecessary overhead, even if the underlying data (`pbs`) hasn't changed.
+**Action:** Always wrap derived computations with `useMemo` in components that are subject to frequent re-renders due to external factors like timers or rapidly updating parent state, ensuring the calculation only runs when its specific dependencies change.
