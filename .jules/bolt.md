@@ -1,0 +1,3 @@
+## 2024-05-20 - Inline Derived State in Timer-Driven Re-renders
+**Learning:** Performing inline derived state calculations (like array `.reduce()` inside an IIFE in the render block) inside components that re-render frequently (e.g. `ExerciseGroup` during active workouts, possibly triggered by elapsed timer updates or active typing) causes redundant processing. Even small calculations add up to jank during active usage.
+**Action:** Always extract and memoize derived calculations with `useMemo` at the top level of the component when they only depend on state that changes infrequently (like `pbs`), especially in components subject to high-frequency timer-driven re-renders.
