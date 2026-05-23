@@ -1,0 +1,3 @@
+## 2025-03-09 - [Batching Zustand Store API Updates]
+**Learning:** Sequential `await` calls combined with automatic, per-call store invalidation (e.g. `refreshSnapshot()` inside an update loop) creates severe O(N) I/O and rendering bottlenecks.
+**Action:** When updating multiple resources in a Zustand store, execute the network requests concurrently using `Promise.all` and pass a `skipSnapshotRefresh` (or equivalent) flag to bypass immediate state invalidation during the loop. After the loop resolves, manually trigger a single refresh to achieve O(1) rendering/fetching performance relative to the number of requests.
