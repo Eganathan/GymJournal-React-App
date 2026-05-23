@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2, ArrowLeft } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -359,22 +359,32 @@ function WorkoutNotes({ sessionId, initialNotes, disabled }) {
 }
 
 function CompletionCard({ result, onDone }) {
-  const allSets = (result?.exercises || []).flatMap((e) => e.sets || []);
-  const completedSets = allSets.filter((s) => s.completedAt);
+  const completedSets = useMemo(() => {
+    const allSets = (result?.exercises || []).flatMap((e) => e.sets || []);
+    return allSets.filter((s) => s.completedAt);
+  }, [result?.exercises]);
 
-  const pbs = (result?.exercises || []).flatMap((ex) =>
-    (ex.sets || [])
-      .filter((s) => s.isPersonalBest)
-      .map((s) => ({ exerciseName: ex.exerciseName, value: s.actualWeightKg, reps: s.actualReps }))
-  );
+  const pbs = useMemo(() => {
+    return (result?.exercises || []).flatMap((ex) =>
+      (ex.sets || [])
+        .filter((s) => s.isPersonalBest)
+        .map((s) => ({ exerciseName: ex.exerciseName, value: s.actualWeightKg, reps: s.actualReps }))
+    );
+  }, [result?.exercises]);
 
-  const exerciseCount = (result?.exercises || []).filter((e) => e.itemType === 'EXERCISE').length;
+  const exerciseCount = useMemo(() => {
+    return (result?.exercises || []).filter((e) => e.itemType === 'EXERCISE').length;
+  }, [result?.exercises]);
+
   const setCount = completedSets.length;
-  const totalVolume = completedSets.reduce((sum, s) => {
-    const w = parseFloat(s.actualWeightKg) || 0;
-    const r = parseInt(s.actualReps) || 0;
-    return sum + w * r;
-  }, 0);
+
+  const totalVolume = useMemo(() => {
+    return completedSets.reduce((sum, s) => {
+      const w = parseFloat(s.actualWeightKg) || 0;
+      const r = parseInt(s.actualReps) || 0;
+      return sum + w * r;
+    }, 0);
+  }, [completedSets]);
 
   const durationMs = result?.startedAt && result?.completedAt
     ? new Date(result.completedAt).getTime() - new Date(result.startedAt).getTime()

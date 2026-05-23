@@ -1,0 +1,6 @@
+## 2026-05-22 - [Performance Optimization in WorkoutActive.js]
+**Learning:** Found unnecessary re-computations in the `CompletionCard` component inside `src/pages/WorkoutActive.js` for array flattening, mapping, reducing, and filtering (`pbs`, `exerciseCount`, `totalVolume`), which get re-evaluated on every render.
+**Action:** Applied `useMemo` hooks to cache the results of these computations. Ensured that ESLint rules and dependencies like `result?.exercises` and `completedSets` were used appropriately. Resolved a `no-unused-vars` warning on `isLoading` in `src/pages/MetricsLog.js` with `eslint-disable-next-line` to avoid removing it as we know Zustand state subscriptions must be kept.
+## 2026-05-23 - [Refined Memoization in WorkoutActive and MetricsLog]
+**Learning:** `completedSets` was being generated as a brand new array reference on every render because `allSets` and `completedSets` were not memoized. This caused `useMemo` for `totalVolume` to re-trigger regardless. Also, retaining unused Zustand subscriptions just to satisfy ESLint is an anti-pattern and actively harms performance. Unused selectors should simply be removed.
+**Action:** Memoized `completedSets` array correctly. Removed the unused `isLoading` state selector entirely from `MetricsLog.js`.
