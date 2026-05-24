@@ -1,0 +1,3 @@
+## 2025-03-09 - Metrics store snapshot refresh parallelization
+**Learning:** Sequential updates combined with snapshot invalidations can result in multiple redundant API calls when handling batch operations in metrics saving. The `metricsStore.js` `updateEntry` and `logEntries` triggered a full `fetchSnapshot` automatically upon each call. Parallelizing these via `Promise.all` directly could have led to parallel redundant requests.
+**Action:** When updating or creating multiple items, introduce options to skip snapshot refresh for individual store methods and perform one manual invalidation (`refreshSnapshot`) after the entire `Promise.all` batch resolves. Removed unused zustand states (e.g. `isLoading`) to prevent unnecessary component re-renders.
