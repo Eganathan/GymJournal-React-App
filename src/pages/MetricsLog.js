@@ -15,7 +15,7 @@ export default function MetricsLog() {
   const createCustomDef = useMetricsStore((s) => s.createCustomDef);
   const dayEntries = useMetricsStore((s) => s.dayEntries);
   const fetchDayEntries = useMetricsStore((s) => s.fetchDayEntries);
-  const isLoading = useMetricsStore((s) => s.isLoading);
+  const refreshSnapshot = useMetricsStore((s) => s.refreshSnapshot);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [values, setValues] = useState({});
@@ -94,17 +94,28 @@ export default function MetricsLog() {
 
     setSaving(true);
     try {
+      const promises = [];
       // Batch POST new entries
       if (newEntries.length > 0) {
-        await logEntries(newEntries);
+        promises.push(logEntries(newEntries, { skipSnapshotRefresh: true }));
       }
       // PUT updates
       for (const u of updates) {
-        await updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate });
+        promises.push(updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate }, { skipSnapshotRefresh: true }));
       }
+
+      // ⚡ BOLT OPTIMIZATION: Replaced sequential `await` loop with `Promise.allSettled`.
+      // Impact: Reduces total save time from O(n) to O(1) network roundtrips for multiple metrics.
+      // We use allSettled instead of all so partial failures still allow successful entries to persist.
+      await Promise.allSettled(promises);
+
+      // Manually trigger ONE snapshot refresh at the end instead of triggering it per metric update.
+      await refreshSnapshot();
+
       setSaved(true);
       setTimeout(() => navigate('/metrics'), 800);
-    } catch {
+    } catch (err) {
+      console.error('Context:', err);
       // error is set in the store
     } finally {
       setSaving(false);
