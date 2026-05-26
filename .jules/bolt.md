@@ -1,0 +1,3 @@
+## 2026-03-11 - Memoization in Timer-Driven Components
+**Learning:** In React components with timer-driven state (like a stopwatch updating every second), any derived state calculation directly in the render body is re-executed on every single tick. This can be especially damaging for complex `.reduce()`, `.flatMap()`, and `.filter()` operations on large arrays, leading to UI thread blocking and poor performance on mobile devices.
+**Action:** Always wrap derived state calculations in `useMemo` when they depend on props or state that changes less frequently than the timer. Ensure that any array dependencies map back to a stable reference.

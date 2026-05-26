@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Check, Plus, Trophy, Clock, Search, Timer, Pause, Play, Trash2, ArrowLeft } from 'lucide-react';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -124,6 +124,15 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
   const sets = exercise.sets || [];
   const restSeconds = exercise.restAfterSeconds || exercise.durationSeconds || 90;
 
+  const bestOrm = useMemo(() => {
+    return pbs.reduce((best, p) => {
+      const w = parseFloat(p.actualWeightKg) || 0;
+      const r = parseInt(p.actualReps) || 0;
+      const est = r === 1 ? w : Math.round(w * (1 + r / 30) * 10) / 10;
+      return est > best ? est : best;
+    }, 0);
+  }, [pbs]);
+
   useEffect(() => {
     if (!exercise.exerciseId) return;
     workoutsApi.getExercisePBs(exercise.exerciseId)
@@ -185,33 +194,24 @@ function ExerciseGroup({ exercise, sessionId, isCompleted: sessionCompleted }) {
             </p>
           )}
         </div>
-        {pbs.length > 0 && (() => {
-          // Best estimated 1RM across all rep-range PBs
-          const bestOrm = pbs.reduce((best, p) => {
-            const w = parseFloat(p.actualWeightKg) || 0;
-            const r = parseInt(p.actualReps) || 0;
-            const est = r === 1 ? w : Math.round(w * (1 + r / 30) * 10) / 10;
-            return est > best ? est : best;
-          }, 0);
-          return (
-            <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
-              {pbs.slice(0, 2).map((p, i) => {
-                const w = parseFloat(p.actualWeightKg) || 0;
-                const r = parseInt(p.actualReps) || 0;
-                return (
-                  <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
-                    <Trophy size={10} /> PB: {w}kg × {r}r
-                  </span>
-                );
-              })}
-              {bestOrm > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-raised)', color: 'var(--text-dim)' }}>
-                  ~{bestOrm}kg 1RM
+        {pbs.length > 0 && (
+          <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+            {pbs.slice(0, 2).map((p, i) => {
+              const w = parseFloat(p.actualWeightKg) || 0;
+              const r = parseInt(p.actualReps) || 0;
+              return (
+                <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
+                  <Trophy size={10} /> PB: {w}kg × {r}r
                 </span>
-              )}
-            </div>
-          );
-        })()}
+              );
+            })}
+            {bestOrm > 0 && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-raised)', color: 'var(--text-dim)' }}>
+                ~{bestOrm}kg 1RM
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -359,22 +359,22 @@ function WorkoutNotes({ sessionId, initialNotes, disabled }) {
 }
 
 function CompletionCard({ result, onDone }) {
-  const allSets = (result?.exercises || []).flatMap((e) => e.sets || []);
-  const completedSets = allSets.filter((s) => s.completedAt);
+  const allSets = useMemo(() => (result?.exercises || []).flatMap((e) => e.sets || []), [result?.exercises]);
+  const completedSets = useMemo(() => allSets.filter((s) => s.completedAt), [allSets]);
 
-  const pbs = (result?.exercises || []).flatMap((ex) =>
+  const pbs = useMemo(() => (result?.exercises || []).flatMap((ex) =>
     (ex.sets || [])
       .filter((s) => s.isPersonalBest)
       .map((s) => ({ exerciseName: ex.exerciseName, value: s.actualWeightKg, reps: s.actualReps }))
-  );
+  ), [result?.exercises]);
 
-  const exerciseCount = (result?.exercises || []).filter((e) => e.itemType === 'EXERCISE').length;
+  const exerciseCount = useMemo(() => (result?.exercises || []).filter((e) => e.itemType === 'EXERCISE').length, [result?.exercises]);
   const setCount = completedSets.length;
-  const totalVolume = completedSets.reduce((sum, s) => {
+  const totalVolume = useMemo(() => completedSets.reduce((sum, s) => {
     const w = parseFloat(s.actualWeightKg) || 0;
     const r = parseInt(s.actualReps) || 0;
     return sum + w * r;
-  }, 0);
+  }, 0), [completedSets]);
 
   const durationMs = result?.startedAt && result?.completedAt
     ? new Date(result.completedAt).getTime() - new Date(result.startedAt).getTime()
