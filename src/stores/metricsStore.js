@@ -115,12 +115,14 @@ export const useMetricsStore = create((set, get) => ({
   },
 
   // ── Log / Update / Delete ────────────────────────────────
-  logEntries: async (entries) => {
+  logEntries: async (entries, opts = {}) => {
     set({ isLoading: true, error: null });
     try {
       await metricsApi.logEntries(entries);
-      set({ _lastFetchedSnapshot: 0 }); // invalidate snapshot
-      await get().fetchSnapshot(true);
+      if (!opts.skipSnapshotRefresh) {
+        set({ _lastFetchedSnapshot: 0 }); // invalidate snapshot
+        await get().fetchSnapshot(true);
+      }
       set({ isLoading: false });
     } catch (err) {
       set({ error: err.message, isLoading: false });
@@ -128,11 +130,13 @@ export const useMetricsStore = create((set, get) => ({
     }
   },
 
-  updateEntry: async (id, updates) => {
+  updateEntry: async (id, updates, opts = {}) => {
     try {
       await metricsApi.updateEntry(id, updates);
-      set({ _lastFetchedSnapshot: 0 }); // invalidate
-      await get().fetchSnapshot(true);
+      if (!opts.skipSnapshotRefresh) {
+        set({ _lastFetchedSnapshot: 0 }); // invalidate
+        await get().fetchSnapshot(true);
+      }
     } catch (err) {
       set({ error: err.message });
       throw err;
@@ -147,6 +151,11 @@ export const useMetricsStore = create((set, get) => ({
     } catch (err) {
       set({ error: err.message });
     }
+  },
+
+  refreshSnapshot: async () => {
+    set({ _lastFetchedSnapshot: 0 });
+    await get().fetchSnapshot(true);
   },
 
   getLatest: (metricType) => {
