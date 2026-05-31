@@ -1,0 +1,3 @@
+## 2025-03-09 - [Batch API Operations and Redundant State Refreshes]
+**Learning:** Sequential `await` calls in loops for state updates (e.g., `updateEntry`) can cause massive performance bottlenecks because each operation sequentially triggers a redundant fetch of the entire app state (`fetchSnapshot`). This results in N redundant API calls for data fetching that was already fetched.
+**Action:** Replace sequential updates with concurrent `Promise.all` and skip state refresh within the individual operations (via an `opts.skipSnapshotRefresh` argument). Then manually invalidate the cache and trigger a single, combined state refresh after all promises resolve.
