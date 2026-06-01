@@ -1,0 +1,3 @@
+## 2024-06-25 - Redundant Cascading API Calls in Zustand Store Updates
+**Learning:** Zustand store methods like `logEntries` and `updateEntry` can inadvertently trigger redundant cascading API calls when used in a loop or batched together, particularly if each method has an embedded snapshot or state refresh built-in.
+**Action:** When parallelizing or batching store methods via `Promise.all` or sequential calls in a single action flow, introduce a `skipSnapshotRefresh` flag (or similar mechanism) to the store methods. Use this flag to suppress individual automated state refreshes, and then perform a single manual state invalidation and refresh after all the batched operations have completed.
