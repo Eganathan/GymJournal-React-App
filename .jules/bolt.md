@@ -1,0 +1,4 @@
+## 2025-03-09 - Parallelizing API Calls in Loops
+
+**Learning:** When executing multiple asynchronous API requests in a loop (like updating multiple metric entries), using a sequential `for...of` loop with `await` turns an O(1) latency operation into an O(N) latency operation because each request waits for the previous one to complete. In addition, when store actions trigger data refreshes upon success, executing them in a loop causes redundant parallel fetch requests.
+**Action:** Always batch or parallelize sequential, independent asynchronous operations using `Promise.all()`. When using store actions that contain automatic side-effects (like refetching), pass an option to disable those side-effects within the batch iteration, and manually trigger a single unified refresh after the batch completes.
