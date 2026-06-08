@@ -1,0 +1,3 @@
+## 2025-06-08 - Batching store mutations and parallelizing API calls
+**Learning:** When making multiple updates (like sequentially calling updateEntry inside a loop), each call triggers an automatic fetchSnapshot(true) which blocks execution and causes redundant network requests.
+**Action:** Pass an options object { skipSnapshotRefresh: true } to store mutation methods when inside a loop, parallelize the API calls with Promise.all (reducing O(N) I/O to O(1)), and manually trigger a single snapshot refresh at the end. Also, unused state subscriptions (like isLoading) cause unnecessary re-renders in Zustand and should be removed entirely.
