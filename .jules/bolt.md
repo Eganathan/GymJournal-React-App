@@ -1,0 +1,3 @@
+## 2025-01-20 - Parallelizing API calls with Promise.all and avoiding redundant state refreshes
+**Learning:** Sequential `await` calls for API updates trigger redundant snapshot refreshes, leading to degraded performance. Parallelizing with `Promise.all` while conditionally skipping the cache refresh (and refreshing once after the batch) reduces total I/O time to O(1) and eliminates redundant fetches.
+**Action:** When performing multiple independent mutations that update shared state, pass options to skip automatic invalidation and manually trigger the state refresh after `Promise.all` completes. Use `Promise.all` instead of `Promise.allSettled` to let the parent try/catch handle errors properly.
