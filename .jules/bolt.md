@@ -1,0 +1,3 @@
+## 2025-03-10 - Parallelize Batch API Operations and Prevent Redundant Cache Refreshes
+**Learning:** Found an N+1 API call bottleneck in `MetricsLog.js` where multiple `updateEntry` calls were awaited sequentially in a loop, each triggering an immediate and redundant state snapshot refresh via `fetchSnapshot(true)`.
+**Action:** Replace sequential `await` calls with `Promise.all` for concurrent execution, and pass a `{ skipSnapshotRefresh: true }` option to the Zustand store actions. Once all concurrent operations finish, manually trigger a single cache invalidation and refresh using `useMetricsStore.setState({ _lastFetchedSnapshot: 0 })` and `fetchSnapshot(true)` to minimize redundant network requests and React re-renders.
