@@ -1,0 +1,3 @@
+## 2025-03-09 - Parallel API calls with Zustand optimizations
+**Learning:** Sequential `await` calls inside loops cause O(N) I/O delay, while running them concurrently via `Promise.all` reduces total time to O(1). Additionally, bypassing redundant state updates (like caching logic inside store operations) and invalidating once at the end significantly boosts performance. Unused Zustand subscriptions (like `isLoading`) should be removed rather than ignored via linters to prevent wasteful re-renders.
+**Action:** Replace `for...of` API loops with `Promise.all`, catch rejections properly, avoid duplicate cache invalidations in the store, and prune unnecessary Zustand subscriptions from components.
