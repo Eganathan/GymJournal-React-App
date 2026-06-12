@@ -1,0 +1,3 @@
+## 2025-03-10 - Parallel API Requests and Redundant Cache Refreshes
+**Learning:** Parallelizing multiple API operations (like updating log entries) inside a loop using `Promise.all` reduces network wait times significantly, compared to executing each await sequentially. However, if the underlying store triggers a full snapshot cache invalidation and refresh for each successful update call, running these concurrently triggers redundant snapshot refresh requests.
+**Action:** When updating multiple entries concurrently, pass an option (e.g., `{ skipSnapshotRefresh: true }`) to the store methods to bypass the automatic refresh, then explicitly invalidate and refresh the snapshot state just once after `Promise.all` resolves.
