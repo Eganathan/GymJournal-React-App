@@ -1,0 +1,3 @@
+## 2025-02-27 - Memoize Calculations in Timer-Driven UI
+**Learning:** In components with frequent, timer-driven re-renders (e.g., `WorkoutActive.js` updating elapsed time every second), any derived computations embedded directly in the JSX (like calculating the best 1RM from an array) will execute repeatedly, severely impacting UI performance.
+**Action:** Extract inline array reductions and mapping logic into `useMemo` hooks. This ensures the expensive calculations only run when their actual dependencies (e.g., the `pbs` array) change, preserving smooth 60fps performance despite the high-frequency parent re-renders.
