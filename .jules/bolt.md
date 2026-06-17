@@ -1,0 +1,3 @@
+## 2024-06-16 - Parallelize store operations with snapshot skip
+**Learning:** Sequential `await` calls in loops for batch API operations (e.g., updating multiple entries) cause N+1 I/O delays. Furthermore, operations like `updateEntry` trigger automatic snapshot invalidations and re-fetches, leading to redundant concurrent requests when parallelized via `Promise.all`.
+**Action:** Extend store methods to accept an `options` object with `{ skipSnapshotRefresh: true }`. Use `Promise.all` to batch the API requests, then perform a single manual state invalidation and fetch via `useMetricsStore.setState` and `useMetricsStore.getState().fetchSnapshot(true)` at the end to turn O(N) I/O and refetches into O(1).
