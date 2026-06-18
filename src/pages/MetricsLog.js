@@ -15,7 +15,6 @@ export default function MetricsLog() {
   const createCustomDef = useMetricsStore((s) => s.createCustomDef);
   const dayEntries = useMetricsStore((s) => s.dayEntries);
   const fetchDayEntries = useMetricsStore((s) => s.fetchDayEntries);
-  const isLoading = useMetricsStore((s) => s.isLoading);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [values, setValues] = useState({});
@@ -62,7 +61,8 @@ export default function MetricsLog() {
     try {
       const fetched = await metricsApi.getEntries(date);
       freshEntries = Array.isArray(fetched) ? fetched : [];
-    } catch {
+    } catch (err) {
+      console.error('Failed to fetch fresh entries:', err);
       // Fall back to cached dayEntries
     }
 
@@ -94,17 +94,29 @@ export default function MetricsLog() {
 
     setSaving(true);
     try {
-      // Batch POST new entries
+      // ⚡ Bolt: Batch POST new entries and parallelize updates to reduce sequential I/O blocking.
+      // We pass skipSnapshotRefresh to prevent duplicate concurrent snapshot refresh requests.
+      const promises = [];
       if (newEntries.length > 0) {
-        await logEntries(newEntries);
+        promises.push(logEntries(newEntries, { skipSnapshotRefresh: true }));
       }
-      // PUT updates
       for (const u of updates) {
-        await updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate });
+        promises.push(
+          updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate }, { skipSnapshotRefresh: true })
+        );
       }
+
+      if (promises.length > 0) {
+        await Promise.all(promises);
+        // Manually invalidate and refresh the snapshot once all operations complete
+        useMetricsStore.setState({ _lastFetchedSnapshot: 0 });
+        await useMetricsStore.getState().fetchSnapshot(true);
+      }
+
       setSaved(true);
       setTimeout(() => navigate('/metrics'), 800);
-    } catch {
+    } catch (err) {
+      console.error('Failed to save metrics:', err);
       // error is set in the store
     } finally {
       setSaving(false);
