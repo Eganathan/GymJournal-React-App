@@ -15,7 +15,6 @@ export default function MetricsLog() {
   const createCustomDef = useMetricsStore((s) => s.createCustomDef);
   const dayEntries = useMetricsStore((s) => s.dayEntries);
   const fetchDayEntries = useMetricsStore((s) => s.fetchDayEntries);
-  const isLoading = useMetricsStore((s) => s.isLoading);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [values, setValues] = useState({});
@@ -94,18 +93,27 @@ export default function MetricsLog() {
 
     setSaving(true);
     try {
-      // Batch POST new entries
+      // Parallelize POST and PUTs to reduce total I/O time from O(N) to O(1)
+      const tasks = [];
       if (newEntries.length > 0) {
-        await logEntries(newEntries);
+        tasks.push(logEntries(newEntries, { skipSnapshotRefresh: true }));
       }
-      // PUT updates
       for (const u of updates) {
-        await updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate });
+        tasks.push(updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate }, { skipSnapshotRefresh: true }));
       }
+
+      if (tasks.length > 0) {
+        await Promise.all(tasks);
+        // Refresh snapshot once after all modifications
+        useMetricsStore.setState({ _lastFetchedSnapshot: 0 });
+        await useMetricsStore.getState().fetchSnapshot(true);
+      }
+
       setSaved(true);
       setTimeout(() => navigate('/metrics'), 800);
-    } catch {
+    } catch (error) {
       // error is set in the store
+      console.error('Context:', error);
     } finally {
       setSaving(false);
     }
