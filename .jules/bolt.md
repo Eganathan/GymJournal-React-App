@@ -1,0 +1,3 @@
+## 2025-06-22 - Parallelize and Batch API Updates
+**Learning:** In `MetricsLog.js`, updating multiple metric entries used a sequential loop with `for ... of`. Additionally, `updateEntry` in `metricsStore.js` called `fetchSnapshot(true)` after every individual update, leading to a cascade of redundant snapshot refreshes and excessive re-renders (compounded by an unused `isLoading` state subscription).
+**Action:** When handling bulk edits, parallelize API updates with `Promise.all()`. Furthermore, pass a `{ skipSnapshotRefresh: true }` parameter to store methods to disable automatic side-effects, and perform the refresh once manually after the batch completes. Remove unused state subscriptions to prevent unnecessary component updates.
