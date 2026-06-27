@@ -1,0 +1,3 @@
+## 2024-05-18 - [Parallelize Independent API Calls in Loops]
+**Learning:** When multiple independent API requests are made within a loop (e.g., metric updates), executing them sequentially blocks the thread and incurs O(N) network latency. Moreover, triggering full state re-fetches (like snapshot refreshes) per API call exacerbates the latency.
+**Action:** Use Promise.all to batch the API requests. Introduce a skipSnapshotRefresh flag to prevent redundant state re-fetches, then manually invalidate and refresh the state just once after all operations have completed. Additionally, always remove unused state subscriptions (e.g., Zustand hooks) to avoid unintended component re-renders.
