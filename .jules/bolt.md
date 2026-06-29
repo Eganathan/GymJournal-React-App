@@ -1,0 +1,3 @@
+## 2025-02-23 - Replacing Sequential Awaits with Promise.all for Metric Updates
+**Learning:** Sequential updates inside loops (like updating multiple metric entries) cause O(N) network wait time. Also, using Promise.all requires bypassing automatic store refreshes per-call to avoid redundant snapshot fetches, which we solved by introducing a `skipSnapshotRefresh` option and invalidating manually once.
+**Action:** Always batch or parallelize network I/O in loops using `Promise.all`. Ensure to add manual cache invalidation flags if individual operations auto-refresh store state. Also remember to remove unused Zustand state subscriptions (e.g. `isLoading`) to prevent unnecessary component re-renders.
