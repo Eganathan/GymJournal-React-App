@@ -15,7 +15,6 @@ export default function MetricsLog() {
   const createCustomDef = useMetricsStore((s) => s.createCustomDef);
   const dayEntries = useMetricsStore((s) => s.dayEntries);
   const fetchDayEntries = useMetricsStore((s) => s.fetchDayEntries);
-  const isLoading = useMetricsStore((s) => s.isLoading);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [values, setValues] = useState({});
@@ -94,19 +93,30 @@ export default function MetricsLog() {
 
     setSaving(true);
     try {
+      const promises = [];
+
       // Batch POST new entries
       if (newEntries.length > 0) {
-        await logEntries(newEntries);
+        promises.push(logEntries(newEntries, { skipSnapshotRefresh: true }));
       }
-      // PUT updates
-      for (const u of updates) {
-        await updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate });
-      }
+
+      // ⚡ Bolt: Parallelize API requests replacing sequential O(N) loop with O(1) concurrent updates
+      const updatePromises = updates.map(u =>
+        updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate }, { skipSnapshotRefresh: true })
+      );
+      promises.push(...updatePromises);
+
+      await Promise.all(promises);
+
       setSaved(true);
       setTimeout(() => navigate('/metrics'), 800);
-    } catch {
+    } catch (err) {
       // error is set in the store
+      console.error('Context:', err);
     } finally {
+      // ⚡ Bolt: Manually invalidate and refresh the snapshot cache once after all concurrent updates complete
+      useMetricsStore.setState({ _lastFetchedSnapshot: 0 });
+      useMetricsStore.getState().fetchSnapshot(true);
       setSaving(false);
     }
   };
