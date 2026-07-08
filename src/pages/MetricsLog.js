@@ -15,7 +15,6 @@ export default function MetricsLog() {
   const createCustomDef = useMetricsStore((s) => s.createCustomDef);
   const dayEntries = useMetricsStore((s) => s.dayEntries);
   const fetchDayEntries = useMetricsStore((s) => s.fetchDayEntries);
-  const isLoading = useMetricsStore((s) => s.isLoading);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [values, setValues] = useState({});
@@ -94,19 +93,28 @@ export default function MetricsLog() {
 
     setSaving(true);
     try {
-      // Batch POST new entries
+      // ⚡ Bolt: Batch POST and PUT operations concurrently using Promise.all to reduce O(N) sequential API wait time to O(1)
+      const tasks = [];
       if (newEntries.length > 0) {
-        await logEntries(newEntries);
+        tasks.push(logEntries(newEntries, { skipSnapshotRefresh: true }));
       }
       // PUT updates
       for (const u of updates) {
-        await updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate });
+        tasks.push(updateEntry(u.id, { value: u.value, unit: u.unit, logDate: u.logDate }, { skipSnapshotRefresh: true }));
+      }
+      if (tasks.length > 0) {
+        await Promise.all(tasks);
       }
       setSaved(true);
       setTimeout(() => navigate('/metrics'), 800);
-    } catch {
+    } catch (err) {
+      // ⚡ Bolt: Log caught errors for visibility
+      console.error('Context:', err);
       // error is set in the store
     } finally {
+      // ⚡ Bolt: Guarantee single snapshot refresh after all parallel operations, even if some failed
+      useMetricsStore.setState({ _lastFetchedSnapshot: 0 });
+      useMetricsStore.getState().fetchSnapshot(true);
       setSaving(false);
     }
   };
